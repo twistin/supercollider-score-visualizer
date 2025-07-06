@@ -1,0 +1,1 @@
+{"rustc":927955034769998173,"features":"[\"alloc\", \"default\", \"std\"]","target":3105838492795396876,"profile":8987646332441898785,"path":9142750742559106776,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/toml_write-0cf08f7855cc8c1e/dep-lib-toml_write"}}],"rustflags":[],"metadata":8217953129247260249,"config":2202906307356721367,"compile_kind":0}

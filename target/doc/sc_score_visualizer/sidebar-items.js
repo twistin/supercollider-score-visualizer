@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EventType"],"fn":["freq_to_color","freq_to_y","load_config","main","model","parse_osc_message","render_event","time_to_x","update","view"],"struct":["Config","Model","MusicalEvent","OscSettings","VisualSettings"]};

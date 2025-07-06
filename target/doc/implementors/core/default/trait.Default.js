@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"sc_score_visualizer":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.72.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"sc_score_visualizer/struct.Config.html\" title=\"struct sc_score_visualizer::Config\">Config</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
