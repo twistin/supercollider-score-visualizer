@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["sc_score_visualizer"];

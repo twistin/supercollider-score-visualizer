@@ -1,0 +1,11 @@
+/Users/sdcarr/Documents/github/sc-score/sc_score_visualizer/target/debug/deps/gif-97e360767cb39494.rmeta: /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/lib.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/traits.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/common.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/reader/mod.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/reader/decoder.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/encoder.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/../README.md
+
+/Users/sdcarr/Documents/github/sc-score/sc_score_visualizer/target/debug/deps/gif-97e360767cb39494.d: /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/lib.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/traits.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/common.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/reader/mod.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/reader/decoder.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/encoder.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/../README.md
+
+/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/lib.rs:
+/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/traits.rs:
+/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/common.rs:
+/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/reader/mod.rs:
+/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/reader/decoder.rs:
+/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/encoder.rs:
+/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/gif-0.11.4/src/../README.md:

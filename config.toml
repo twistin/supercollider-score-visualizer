@@ -1,0 +1,39 @@
+# ================================================
+# SC SCORE VISUALIZER - CONFIGURACIÓN PRINCIPAL
+# ================================================
+
+[visual]
+# Estilo visual: "xenakis", "ikeda", "henke", "anadol"
+style = "xenakis"
+
+# Configuración de ventana
+width = 1200
+height = 800
+fullscreen = false
+
+# Configuración temporal
+time_window = 15.0          # Ventana de tiempo visible (segundos)
+max_events = 150            # Máximo eventos simultáneos
+event_fade_time = 4.0       # Tiempo de desvanecimiento
+
+# Esquema de colores
+background_color = [8, 15, 30]    # Fondo azul oscuro profesional
+primary_color = [255, 255, 255]   # Líneas blancas
+
+[audio]
+# Configuración OSC
+osc_port = 57124
+osc_host = "127.0.0.1"
+
+# Parámetros de análisis
+buffer_size = 1024
+sample_rate = 44100
+
+# Sincronización temporal
+refresh_rate = 60.0
+sync_threshold = 0.1  # segundos
+
+[performance]
+# Optimización de rendimiento
+interpolation = true
+vsync = true
