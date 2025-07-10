@@ -1,0 +1,6 @@
+{
+  "name": "Plan de Estudio Interactivo de Rust",
+  "description": "Una aplicación web interactiva para aprender el lenguaje de programación Rust, basada en un plan de estudio de 4 semanas. Diseñada para programadores con experiencia en otros lenguajes, con explicaciones visuales, ejercicios y un enfoque práctico.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
