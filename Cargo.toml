@@ -1,21 +1,31 @@
 [package]
 name = "sc_score_visualizer"
-version = "0.1.0"
+version = "2.0.0"
 edition = "2021"
+description = "Live Coding Visualizer with Nannou and SuperCollider"
+license = "MIT"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[[bin]]
+name = "sc_score_visualizer"
+path = "src/main.rs"
 
 [dependencies]
-nannou = "0.19.0"
-nannou_osc = "0.19.0"
-rand = "0.8.5"
-noise = "0.8.2"
-chrono = "0.4.31"
-# Audio analysis dependencies (versiones compatibles)
-rustfft = "6.1.0"        # Fast FFT implementation
-# cpal = "0.13.5"          # Cross-platform audio I/O (deshabilitado temporalmente)
-# ringbuf = "0.3.3"        # Efficient ring buffer for audio (deshabilitado temporalmente)
-# Configuration and utilities
+nannou = "0.18"
+nannou_osc = "0.18"
+noise = "0.8"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 toml = "0.8"
+config = "0.11"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+notify = "6.1"
+tokio = { version = "1.0", features = ["rt", "sync", "fs", "rt-multi-thread"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
