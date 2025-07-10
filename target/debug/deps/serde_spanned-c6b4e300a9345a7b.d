@@ -1,8 +1,0 @@
-/Users/sdcarr/Documents/github/sc-score/sc_score_visualizer/target/debug/deps/serde_spanned-c6b4e300a9345a7b.rmeta: /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/lib.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/spanned.rs
-
-/Users/sdcarr/Documents/github/sc-score/sc_score_visualizer/target/debug/deps/libserde_spanned-c6b4e300a9345a7b.rlib: /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/lib.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/spanned.rs
-
-/Users/sdcarr/Documents/github/sc-score/sc_score_visualizer/target/debug/deps/serde_spanned-c6b4e300a9345a7b.d: /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/lib.rs /Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/spanned.rs
-
-/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/lib.rs:
-/Users/sdcarr/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_spanned-0.6.9/src/spanned.rs:

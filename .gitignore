@@ -1,0 +1,39 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+debug.log
+
+# Archivos temporales de desarrollo
+# (evitar que se acumulen en la raíz)
+test_*.sh
+temp_*.md
+debug_*.md
+*_TEMP.*
+*.tmp
+
+# Backups
+*.bak
+*.backup
+*~
+
+# Archivos OSC de prueba
+*.osc
+osc_*.log
+
+# Configuración local
+config_local.toml
+settings_local.toml

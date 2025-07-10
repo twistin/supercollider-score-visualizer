@@ -1,39 +1,25 @@
-# ================================================
-# SC SCORE VISUALIZER - CONFIGURACIÓN PRINCIPAL
-# ================================================
+# 🎵 SC Score Visualizer Configuration
+# Configuration file that matches the expected structure
 
 [visual]
-# Estilo visual: "xenakis", "ikeda", "henke", "anadol"
-style = "xenakis"
+time_window = 10.0
+max_events = 200
+background_color = [8, 15, 30]   # Darker blue background [R, G, B]
+event_fade_time = 3.0
 
-# Configuración de ventana
-width = 1200
-height = 800
-fullscreen = false
+[visual.grid]
+show_labels = true
+show_frequency_labels = true
+show_time_labels = true
+major_lines = 8
+minor_lines = 4
+major_color = [0.3, 0.7, 1.0, 0.25]    # Bright blue for major lines
+minor_color = [0.2, 0.5, 0.8, 0.12]    # Soft blue for minor lines
+center_color = [0.4, 0.8, 1.0, 0.5]    # Cyan blue for center lines
+label_color = [0.8, 0.9, 1.0, 0.9]     # Light blue for labels
+musical_divisions = true
+frequency_range = [80.0, 2000.0]
+time_range = 10.0
 
-# Configuración temporal
-time_window = 15.0          # Ventana de tiempo visible (segundos)
-max_events = 150            # Máximo eventos simultáneos
-event_fade_time = 4.0       # Tiempo de desvanecimiento
-
-# Esquema de colores
-background_color = [8, 15, 30]    # Fondo azul oscuro profesional
-primary_color = [255, 255, 255]   # Líneas blancas
-
-[audio]
-# Configuración OSC
-osc_port = 57124
-osc_host = "127.0.0.1"
-
-# Parámetros de análisis
-buffer_size = 1024
-sample_rate = 44100
-
-# Sincronización temporal
-refresh_rate = 60.0
-sync_threshold = 0.1  # segundos
-
-[performance]
-# Optimización de rendimiento
-interpolation = true
-vsync = true
+[osc]
+port = 57124  # OSC port for receiving messages
