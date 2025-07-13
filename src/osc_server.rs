@@ -193,15 +193,34 @@ impl OscMessageValidator {
     }
     
     /// Valida un mensaje de nota musical
+    /// Valida un mensaje de nota musical
     pub fn validate_note_message(&self, args: &[osc::Type]) -> Result<(String, f32, f32, f32), String> {
-        if args.len() < 4 {
-            return Err(format!("Argumentos insuficientes: {} (esperados: 4)", args.len()));
+        println!("🔍 OSC Validación: {} argumentos recibidos", args.len());
+        for (i, arg) in args.iter().enumerate() {
+            println!("  arg[{}]: {:?}", i, arg);
         }
         
-        let instrument = args[0].clone().string().unwrap_or("default".to_string());
-        let freq = args[1].clone().float().ok_or("Frecuencia inválida")?;
-        let amp = args[2].clone().float().ok_or("Amplitud inválida")?;
-        let dur = args[3].clone().float().ok_or("Duración inválida")?;
+        if args.len() < 3 {
+            return Err(format!("Argumentos insuficientes: {} (esperados: 3 o 4)", args.len()));
+        }
+        
+        let (instrument, freq, amp, dur) = if args.len() == 3 {
+            // Formato: freq, amp, dur (sin instrument)
+            let freq = args[0].clone().float().ok_or("Frecuencia inválida")?;
+            let amp = args[1].clone().float().ok_or("Amplitud inválida")?;
+            let dur = args[2].clone().float().ok_or("Duración inválida")?;
+            ("default".to_string(), freq, amp, dur)
+        } else {
+            // Formato: instrument, freq, amp, dur
+            let instrument = args[0].clone().string().unwrap_or("default".to_string());
+            let freq = args[1].clone().float().ok_or("Frecuencia inválida")?;
+            let amp = args[2].clone().float().ok_or("Amplitud inválida")?;
+            let dur = args[3].clone().float().ok_or("Duración inválida")?;
+            (instrument, freq, amp, dur)
+        };
+        
+        println!("📝 OSC Parseado: instrument={}, freq={:.2}, amp={:.3}, dur={:.2}", 
+                 instrument, freq, amp, dur);
         
         // Validar rangos
         if freq < self.audio_config.freq_min || freq > self.audio_config.freq_max {
@@ -216,9 +235,9 @@ impl OscMessageValidator {
             return Err(format!("Duración fuera de rango: {:.2}s", dur));
         }
         
+        println!("✅ OSC Validación exitosa: nota aceptada");
         Ok((instrument, freq, amp, dur))
-    }
-    
+    }    
     /// Valida un mensaje de drone
     pub fn validate_drone_message(&self, args: &[osc::Type]) -> Result<(f32, f32), String> {
         if args.len() < 2 {
