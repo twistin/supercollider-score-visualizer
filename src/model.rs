@@ -1,491 +1,683 @@
-// =================================================================
-// 🎵 SC SCORE VISUALIZER - MODELO DE DATOS
-// =================================================================
-// Define el estado de la aplicación (el `Model`)
+// src/model.rs - Estructuras de datos principales
 
 use nannou::prelude::*;
-use std::collections::VecDeque;
-use std::sync::mpsc::Receiver;
-use std::time::Instant;
-use serde::Deserialize;
-use noise::Perlin;
+use nannou_osc as osc;
+use crate::config::AppConfig;
+use crate::osc_server::OscServer;
+use crate::visual::audio_visual_mapping::{VisualNote, AudioVisualMapper, AudioVisualMappingConfig};
+use crate::visual::audio_visual_mapping_pro::{ProAudioVisualMapper, ProMappingConfig, ColorPalette, EventKind, VisualShape};
+use crate::visual::shader_manager::ShaderManager;
 
-use crate::events::{MusicalEvent, RealtimeData};
-
-// =================================================================
-// CONFIGURACIÓN DE LA APLICACIÓN
-// =================================================================
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Config {
-    pub visual: VisualSettings,
-    pub osc: OscSettings,
+/// Estadísticas de mensajes OSC
+#[derive(Debug, Clone, Default)]
+pub struct OscStats {
+    pub total_messages: u32,
+    pub successful_messages: u32,
+    pub failed_messages: u32,
+    pub last_message_time: f64,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct VisualSettings {
-    pub time_window: f64,
-    pub max_events: usize,
-    pub background_color: [u8; 3],
-    pub event_fade_time: f64,
-    pub grid: GridSettings,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct GridSettings {
-    pub show_labels: bool,
-    pub show_frequency_labels: bool,
-    pub show_time_labels: bool,
-    pub major_lines: u32,
-    pub minor_lines: u32,
-    pub major_color: [f32; 4],
-    pub minor_color: [f32; 4],
-    pub center_color: [f32; 4],
-    pub label_color: [f32; 4],
-    pub musical_divisions: bool,
-    pub frequency_range: (f32, f32), // Hz range for frequency axis
-    pub time_range: f32, // seconds for time axis
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct OscSettings {
-    pub port: u16,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            visual: VisualSettings {
-                time_window: 10.0,
-                max_events: 200,
-                background_color: [8, 15, 30],  // Fondo azul más oscuro
-                event_fade_time: 3.0,
-                grid: GridSettings::default(),
-            },
-            osc: OscSettings {
-                port: 57124,
-            },
+impl OscStats {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn success_rate(&self) -> f32 {
+        if self.total_messages == 0 {
+            0.0
+        } else {
+            self.successful_messages as f32 / self.total_messages as f32
         }
     }
 }
 
-impl Default for GridSettings {
+/// Evento musical discreto (nota individual)
+#[derive(Debug, Clone)]
+pub struct Note {
+    pub event_type: String,
+    pub instrument: String,  // Nuevo campo para tipo de instrumento
+    pub time_alive: f32,
+    pub duration: f32,
+    pub position: Vec2,
+    pub size: f32,
+    pub color: Srgb<u8>,
+}
+
+/// Alias para compatibilidad con código existente
+pub type MusicalEvent = Note;
+
+/// Datos de análisis continuo (FFT, análisis espectral)
+#[derive(Debug, Clone, Default)]
+pub struct AnalysisData {
+    pub amplitude: f32,
+    pub brightness: f32,
+    pub noisiness: f32,
+}
+
+/// Evento de drone (tonos continuos)
+#[derive(Debug, Clone)]
+pub struct DroneEvent {
+    pub frequency: f32,
+    pub amplitude: f32,
+    pub time_alive: f32,
+    pub position: Vec2,
+    pub radius: f32,
+    pub color: Hsv,
+}
+
+/// Datos del cluster (masa de partículas reactiva)
+#[derive(Debug, Clone)]
+pub struct ClusterData {
+    pub frequency: f32,
+    pub amplitude: f32,
+    pub audio_level: f32,
+    pub size: f32,
+    pub density: f32,
+    pub time_alive: f32,
+}
+
+impl Default for ClusterData {
     fn default() -> Self {
         Self {
-            show_labels: true,
-            show_frequency_labels: true,
-            show_time_labels: true,
-            major_lines: 8,
-            minor_lines: 4,
-            major_color: [0.3, 0.7, 1.0, 0.25],      // Azul brillante para líneas principales
-            minor_color: [0.2, 0.5, 0.8, 0.12],      // Azul suave para líneas menores
-            center_color: [0.4, 0.8, 1.0, 0.5],      // Azul cyan para líneas centrales
-            label_color: [0.8, 0.9, 1.0, 0.9],       // Azul claro para etiquetas
-            musical_divisions: true,
-            frequency_range: (80.0, 2000.0), // Rango musical típico
-            time_range: 10.0, // 10 segundos
+            frequency: 300.0,
+            amplitude: 200.0,
+            audio_level: 0.0,
+            size: 50.0,
+            density: 0.5,
+            time_alive: 0.0,
         }
     }
 }
 
-// =================================================================
-// ESTADO DE LA APLICACIÓN
-// =================================================================
-
-pub struct Model {
-    pub config: Config,
-    pub events: VecDeque<MusicalEvent>,
-    pub realtime_data: Option<RealtimeData>,
-    pub osc_receiver: Receiver<nannou_osc::Packet>,
-    pub last_cleanup: Instant,
-    pub noise: Perlin,
-    pub stats: AppStats,
-    pub ui_state: UiState,
-}
-
-#[derive(Debug)]
-pub struct AppStats {
-    pub total_events: usize,
-    pub events_per_second: f32,
-    pub last_event_time: Option<Instant>,
-    pub frame_count: usize,
-    pub fps: f32,
-    pub last_fps_update: Instant,
-}
-
-#[derive(Debug)]
-pub struct UiState {
-    pub show_stats: bool,
+/// Configuración de display/visualización
+#[derive(Debug, Clone)]
+pub struct DisplayConfig {
+    pub show_debug: bool,
     pub show_grid: bool,
-    pub show_trails: bool,
-    pub pause_updates: bool,
-    pub show_menu: bool,
-    pub menu_state: MenuState,
-    pub zoom_level: f32,
-    pub viewport_offset: Vec2,
-    pub theme: ColorTheme,
-    pub performance_mode: bool,
-    pub fullscreen: bool,
-    pub show_timer: bool,
-    pub snap_to_x_grid: bool,
-    pub snap_to_y_grid: bool,
-    pub grid_resolution: u32,
-    pub high_resolution: bool,
+    pub background_style: BackgroundStyle,
+    pub visual_quality: VisualQuality,
 }
 
 #[derive(Debug, Clone)]
-pub struct MenuState {
-    pub active_menu: Option<MenuType>,
-    pub hovered_item: Option<String>,
-    pub menu_open: bool,
+pub enum BackgroundStyle {
+    Modern,
+    Simple,
+    Gradient,
+    None,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum MenuType {
-    File,
-    Edit,
-    Display,
-    View,
+#[derive(Debug, Clone)]
+pub enum VisualQuality {
+    Low,
+    Medium,
+    High,
+    Ultra,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ColorTheme {
-    Dark,
-    Light,
-    Blue,
-    Classic,
+/// Modo de visualización para diferentes tipos de eventos
+#[derive(Debug, Clone)]
+pub enum DisplayMode {
+    Events,      // Mostrar solo eventos musicales discretos
+    Analysis,    // Mostrar solo análisis continuo
+    Drones,      // Mostrar solo eventos de drone
+    Cluster,     // Mostrar solo cluster de partículas
+    Combined,    // Mostrar todo combinado
 }
 
-impl Default for AppStats {
+/// Modo de scroll para el visualizador
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ScrollMode {
+    Fixed,      // Notas estáticas sin movimiento horizontal
+    Scrolling,  // Notas se desplazan horizontalmente con el tiempo
+}
+
+impl Default for ScrollMode {
     fn default() -> Self {
-        Self {
-            total_events: 0,
-            events_per_second: 0.0,
-            last_event_time: None,
-            frame_count: 0,
-            fps: 0.0,
-            last_fps_update: Instant::now(),
-        }
+        ScrollMode::Fixed
     }
 }
 
-impl Default for UiState {
+impl Default for DisplayConfig {
     fn default() -> Self {
         Self {
-            show_stats: true,
+            show_debug: true,
             show_grid: true,
-            show_trails: true,
-            pause_updates: false,
-            show_menu: true,
-            menu_state: MenuState::default(),
-            zoom_level: 1.0,
-            viewport_offset: Vec2::ZERO,
-            theme: ColorTheme::Dark,
-            performance_mode: false,
-            fullscreen: false,
-            show_timer: true,
-            snap_to_x_grid: false,
-            snap_to_y_grid: false,
-            grid_resolution: 8,
-            high_resolution: false,
+            background_style: BackgroundStyle::Modern,
+            visual_quality: VisualQuality::High,
         }
     }
 }
 
-impl Default for MenuState {
+impl Default for DisplayMode {
     fn default() -> Self {
-        Self {
-            active_menu: None,
-            hovered_item: None,
-            menu_open: false,
-        }
+        DisplayMode::Combined
     }
+}
+
+/// Modelo principal de la aplicación
+pub struct Model {
+    pub osc_server: OscServer,  // Servidor OSC robusto
+    pub midi_server: Option<crate::midi::MidiServer>, // Servidor MIDI opcional
+    pub config: AppConfig,      // Configuración externa
+    
+    // Notas visuales avanzadas (nuevo sistema)
+    pub visual_notes: Vec<VisualNote>,
+    pub audio_visual_mapper: AudioVisualMapper,
+    
+    // Mapeador profesional (nuevo sistema avanzado)
+    pub pro_mapper: ProAudioVisualMapper,
+    
+    // Sistema de gestión de shaders y renderizado profesional
+    pub shader_manager: ShaderManager,
+    
+    // Control de tiempo y estado
+    pub elapsed_time: f32,
+    pub scroll_mode: ScrollMode,
+    pub scroll_speed: f32,  // Velocidad de scroll en píxeles por segundo
+    
+    // Datos legacy (mantener para compatibilidad)
+    pub notes: Vec<Note>,
+    pub analysis: AnalysisData,
+    pub drone_events: Vec<DroneEvent>,
+    pub cluster_data: ClusterData,
+    pub display_config: DisplayConfig,
+    pub display_mode: DisplayMode,
+    pub osc_stats: OscStats,
+    
+    // Alias para compatibilidad
+    pub events: Vec<MusicalEvent>,
 }
 
 impl Model {
-    pub fn new(config: Config, osc_receiver: Receiver<nannou_osc::Packet>) -> Self {
-        Self {
-            config,
-            events: VecDeque::new(),
-            realtime_data: None,
-            osc_receiver,
-            last_cleanup: Instant::now(),
-            noise: Perlin::new(0),
-            stats: AppStats::default(),
-            ui_state: UiState::default(),
-        }
-    }
-    
-    pub fn add_event(&mut self, event: MusicalEvent) {
-        // Actualizar estadísticas
-        self.stats.total_events += 1;
-        self.stats.last_event_time = Some(Instant::now());
-        
-        // Agregar evento
-        self.events.push_back(event);
-        
-        // Limitar número de eventos
-        if self.events.len() > self.config.visual.max_events {
-            self.events.pop_front();
-        }
-    }
-    
-    pub fn update_realtime_data(&mut self, data: RealtimeData) {
-        self.realtime_data = Some(data);
-    }
-    
-    pub fn cleanup_old_events(&mut self) {
-        let now = Instant::now();
-        
-        // Limpiar solo cada 100ms para mejor rendimiento
-        if now.duration_since(self.last_cleanup).as_millis() < 100 {
-            return;
-        }
-        
-        self.last_cleanup = now;
-        
-        // Marcar eventos viejos para desvanecimiento
-        let time_window = self.config.visual.time_window;
-        for event in &mut self.events {
-            if event.created_at.elapsed().as_secs_f64() > time_window {
-                event.start_fade();
-            }
-        }
-        
-        // Remover eventos completamente desvanecidos
-        let fade_time = self.config.visual.event_fade_time;
-        self.events.retain(|event| !event.is_expired(fade_time));
-    }
-    
-    pub fn update_stats(&mut self) {
-        self.stats.frame_count += 1;
-        
-        // Actualizar FPS cada segundo
-        if self.stats.last_fps_update.elapsed().as_secs() >= 1 {
-            self.stats.fps = self.stats.frame_count as f32;
-            self.stats.frame_count = 0;
-            self.stats.last_fps_update = Instant::now();
+    /// Crea una nueva instancia del modelo (método legacy)
+    pub fn new(_receiver: osc::Receiver) -> Self {
+        let config = AppConfig::default();
+        let osc_server = OscServer::new(config.osc.clone())
+            .expect("Error creando servidor OSC con configuración por defecto");
             
-            // Calcular eventos por segundo
-            if let Some(last_event) = self.stats.last_event_time {
-                if last_event.elapsed().as_secs() < 1 {
-                    // Aproximación simple basada en eventos recientes
-                    let recent_events = self.events.iter()
-                        .filter(|e| e.created_at.elapsed().as_secs() < 1)
-                        .count();
-                    self.stats.events_per_second = recent_events as f32;
+        Model {
+            osc_server,
+            midi_server: None, // Inicializar sin servidor MIDI
+            config,
+            visual_notes: Vec::new(),
+            audio_visual_mapper: AudioVisualMapper::new(AudioVisualMappingConfig::default()),
+            pro_mapper: ProAudioVisualMapper::new(ProMappingConfig::default(), ColorPalette::Classical),
+            shader_manager: ShaderManager::default(),
+            elapsed_time: 0.0,
+            scroll_mode: ScrollMode::default(),
+            scroll_speed: 100.0, // 100 píxeles por segundo por defecto
+            notes: Vec::new(),
+            analysis: AnalysisData::default(),
+            drone_events: Vec::new(),
+            cluster_data: ClusterData::default(),
+            display_config: DisplayConfig::default(),
+            display_mode: DisplayMode::default(),
+            osc_stats: OscStats::new(),
+            events: Vec::new(), // Alias para compatibilidad
+        }
+    }
+    
+    /// Crea una nueva instancia del modelo con configuración externa
+    pub fn new_with_config(osc_server: OscServer, config: AppConfig) -> Self {
+        Model {
+            osc_server,
+            midi_server: None, // Inicializar sin servidor MIDI
+            config,
+            visual_notes: Vec::new(),
+            audio_visual_mapper: AudioVisualMapper::new(AudioVisualMappingConfig::default()),
+            pro_mapper: ProAudioVisualMapper::new(ProMappingConfig::default(), ColorPalette::Classical),
+            shader_manager: ShaderManager::default(),
+            elapsed_time: 0.0,
+            scroll_mode: ScrollMode::default(),
+            scroll_speed: 100.0, // 100 píxeles por segundo por defecto
+            notes: Vec::new(),
+            analysis: AnalysisData::default(),
+            drone_events: Vec::new(),
+            cluster_data: ClusterData::default(),
+            display_config: DisplayConfig::default(),
+            display_mode: DisplayMode::default(),
+            osc_stats: OscStats::new(),
+            events: Vec::new(), // Alias para compatibilidad
+        }
+    }
+    
+    /// Añade una nueva nota musical (método principal)
+    pub fn add_note(&mut self, freq: f32, amp: f32, dur: f32, win: Rect) {
+        let pos_y = map_range(freq.log2(), (80.0f32).log2(), (2000.0f32).log2(), win.bottom() + 20.0, win.top() - 20.0);
+        let new_note = Note {
+            event_type: "note".to_string(),
+            instrument: "default".to_string(),  // Valor por defecto
+            duration: dur,
+            time_alive: 0.0,
+            position: pt2(win.left() + 50.0, pos_y),
+            size: map_range(amp, 0.0, 1.0, 2.0, 15.0),
+            color: Srgb::from_format(hsv(map_range(freq, 200.0, 2000.0, 0.55, 0.95), 0.9, 1.0).into()),
+        };
+        
+        self.notes.push(new_note.clone());
+        self.events.push(new_note); // Mantener compatibilidad
+    }
+
+    /// Método para añadir un nuevo evento discreto (alias para compatibilidad)
+    pub fn add_musical_event(&mut self, freq: f32, amp: f32, dur: f32, win: Rect) {
+        self.add_note(freq, amp, dur, win);
+    }
+    
+    /// Añade una nueva nota musical con instrumento específico
+    pub fn add_note_with_instrument(&mut self, freq: f32, amp: f32, dur: f32, instrument: &str, win: Rect) {
+        let pos_y = map_range(freq.log2(), (80.0f32).log2(), (2000.0f32).log2(), win.bottom() + 20.0, win.top() - 20.0);
+        
+        // Color basado en el instrumento
+        let hue = match instrument {
+            "piano" => 0.6,
+            "guitar" => 0.3,
+            "violin" => 0.8,
+            "brass" => 0.1,
+            "percussion" => 0.0,
+            _ => map_range(freq, 200.0, 2000.0, 0.55, 0.95),
+        };
+        
+        let new_note = Note {
+            event_type: "note".to_string(),
+            instrument: instrument.to_string(),
+            duration: dur,
+            time_alive: 0.0,
+            position: pt2(win.left() + 50.0, pos_y),
+            size: map_range(amp, 0.0, 1.0, 2.0, 15.0),
+            color: Srgb::from_format(hsv(hue, 0.9, 1.0).into()),
+        };
+        
+        self.notes.push(new_note.clone());
+        self.events.push(new_note); // Mantener compatibilidad
+        
+        // Añadir también nota visual avanzada
+        self.add_visual_note(freq, amp, dur, instrument, win);
+    }
+    
+    /// Actualiza los datos de análisis continuo
+    pub fn update_analysis_data(&mut self, amp: f32, bright: f32, noisy: f32) {
+        self.analysis.amplitude = amp;
+        self.analysis.brightness = bright;
+        self.analysis.noisiness = noisy;
+    }
+
+    /// Añade un evento de drone
+    pub fn add_drone_event(&mut self, freq: f32, amp: f32) {
+        let drone_event = DroneEvent {
+            frequency: freq,
+            amplitude: amp,
+            time_alive: 0.0,
+            position: pt2(0.0, 0.0), // Centro de la pantalla
+            radius: map_range(amp, 0.0, 1.0, 50.0, 200.0).max(50.0),
+            color: hsv(map_range(freq, 80.0, 800.0, 0.0, 0.7), 0.9, 1.0),
+        };
+        
+        println!("🎵 Drone añadido: {}Hz {}amp radio:{}", freq, amp, drone_event.radius);
+        
+        // Mantener solo los eventos de drone más recientes
+        if self.drone_events.len() > 3 {
+            self.drone_events.remove(0);
+        }
+        self.drone_events.push(drone_event);
+    }
+
+    /// Actualiza los datos del cluster
+    pub fn update_cluster_data(&mut self, freq: f32, amp: f32, level: f32) {
+        self.cluster_data.frequency = freq;
+        self.cluster_data.amplitude = amp;
+        self.cluster_data.audio_level = level;
+        self.cluster_data.time_alive = 0.0; // Resetear tiempo para que se vea activo
+        
+        // Calcular tamaño basado en frecuencia (inverso: frecuencias altas = cluster pequeño)
+        self.cluster_data.size = map_range(freq, 200.0, 600.0, 150.0, 50.0).max(30.0);
+        
+        // Calcular densidad basada en amplitud
+        self.cluster_data.density = map_range(amp, 50.0, 800.0, 0.3, 1.0);
+        
+        println!("🌊 Cluster: freq={:.1}Hz amp={:.1} size={:.1} density={:.2}", 
+                freq, amp, self.cluster_data.size, self.cluster_data.density);
+    }
+
+    /// Actualiza el ciclo de vida de todos los eventos
+    pub fn update_events(&mut self, dt: f32) {
+        // **Aplicar lógica de scroll si está habilitado**
+        if self.scroll_mode == ScrollMode::Scrolling {
+            self.apply_scroll_movement(dt);
+        }
+        
+        // Actualizar notas musicales
+        for note in &mut self.notes {
+            note.time_alive += dt;
+        }
+        self.notes.retain(|note| note.time_alive <= note.duration + 2.0);
+        
+        // Mantener sincronización con events para compatibilidad
+        self.events.clear();
+        self.events.extend(self.notes.clone());
+        
+        // Actualizar eventos de drone
+        for drone in &mut self.drone_events {
+            drone.time_alive += dt;
+        }
+        self.drone_events.retain(|drone| drone.time_alive <= 5.0);
+        
+        // Actualizar cluster data
+        self.cluster_data.time_alive += dt;
+        
+        // Si no hay datos nuevos del cluster por más de 1 segundo, reducir la visualización
+        if self.cluster_data.time_alive > 1.0 {
+            self.cluster_data.audio_level *= 0.95; // Fade out gradual
+        }
+    }
+    
+    /// **Aplica movimiento de scroll horizontal a todos los elementos**
+    fn apply_scroll_movement(&mut self, dt: f32) {
+        let scroll_delta = -self.scroll_speed * dt; // Negativo para mover hacia la izquierda
+        
+        // Scroll para notas musicales
+        for note in &mut self.notes {
+            note.position.x += scroll_delta;
+        }
+        
+        // Scroll para eventos de drone
+        for drone in &mut self.drone_events {
+            drone.position.x += scroll_delta;
+        }
+        
+        // Scroll para notas visuales avanzadas
+        for visual_note in &mut self.visual_notes {
+            visual_note.position.x += scroll_delta;
+            visual_note.target_position.x += scroll_delta;
+        }
+        
+        // Actualizar posición del cluster (si tiene posición)
+        // El cluster_data no tiene posición específica, se renderiza globalmente
+        
+        // Opcional: eliminar elementos que salen completamente de la pantalla
+        // (esto se podría hacer en cleanup_expired_events si se desea)
+    }
+    
+    /// Limpia todos los eventos
+    pub fn clear_events(&mut self) {
+        self.notes.clear();
+        self.events.clear();
+        self.drone_events.clear();
+        self.cluster_data = ClusterData::default();
+        self.analysis = AnalysisData::default();
+    }
+    
+    /// Configura el modo de visualización
+    pub fn set_display_mode(&mut self, mode: DisplayMode) {
+        self.display_mode = mode;
+    }
+    
+    /// Configura las opciones de display
+    pub fn set_display_config(&mut self, show_debug: bool, show_grid: bool) {
+        self.display_config.show_debug = show_debug;
+        self.display_config.show_grid = show_grid;
+    }
+    
+    /// Configura la calidad visual
+    pub fn set_visual_quality(&mut self, quality: VisualQuality) {
+        self.display_config.visual_quality = quality;
+    }
+    
+    /// **Configura el modo de scroll**
+    pub fn set_scroll_mode(&mut self, mode: ScrollMode) {
+        self.scroll_mode = mode;
+    }
+    
+    /// **Obtiene el modo de scroll actual**
+    pub fn get_scroll_mode(&self) -> ScrollMode {
+        self.scroll_mode
+    }
+    
+    /// **Configura la velocidad de scroll**
+    pub fn set_scroll_speed(&mut self, speed: f32) {
+        self.scroll_speed = speed.max(0.0); // Asegurar velocidad no negativa
+    }
+    
+    /// **Obtiene la velocidad de scroll actual**
+    pub fn get_scroll_speed(&self) -> f32 {
+        self.scroll_speed
+    }
+    
+    /// **Alterna entre modo fijo y scroll**
+    pub fn toggle_scroll_mode(&mut self) {
+        self.scroll_mode = match self.scroll_mode {
+            ScrollMode::Fixed => ScrollMode::Scrolling,
+            ScrollMode::Scrolling => ScrollMode::Fixed,
+        };
+    }
+    
+    /// Obtiene el número total de eventos activos
+    pub fn get_active_events_count(&self) -> usize {
+        self.notes.len() + self.drone_events.len()
+    }
+    
+    /// Limpia eventos expirados automáticamente
+    pub fn cleanup_expired_events(&mut self) {
+        let before_notes = self.notes.len();
+        let before_drones = self.drone_events.len();
+        
+        // Limpiar notas expiradas
+        self.notes.retain(|note| note.time_alive <= note.duration + 2.0);
+        
+        // Limpiar drones expirados
+        self.drone_events.retain(|drone| drone.time_alive <= 8.0);
+        
+        // Mantener sincronización con events
+        self.events.clear();
+        self.events.extend(self.notes.clone());
+        
+        // Log si se limpiaron eventos
+        let cleaned_notes = before_notes - self.notes.len();
+        let cleaned_drones = before_drones - self.drone_events.len();
+        
+        if cleaned_notes > 0 || cleaned_drones > 0 {
+            println!("🧹 Eventos expirados limpiados: {} notas, {} drones", 
+                   cleaned_notes, cleaned_drones);
+        }
+    }
+    
+    /// Inicializa el servidor MIDI si está habilitado en la configuración
+    pub fn init_midi(&mut self) {
+        if self.config.midi.enabled {
+            println!("🎹 Intentando inicializar servidor MIDI...");
+            match crate::midi::MidiServer::new(self.config.clone()) {
+                Ok(server) => {
+                    println!("✅ Servidor MIDI inicializado exitosamente");
+                    self.midi_server = Some(server);
+                },
+                Err(e) => {
+                    println!("⚠️  No se pudo inicializar MIDI: {}", e);
+                    println!("   Continuando sin soporte MIDI");
+                    self.midi_server = None;
                 }
             }
+        } else {
+            println!("🎹 MIDI deshabilitado en configuración");
         }
     }
     
-    pub fn toggle_ui_element(&mut self, element: &str) {
-        match element {
-            "stats" => self.ui_state.show_stats = !self.ui_state.show_stats,
-            "grid" => self.ui_state.show_grid = !self.ui_state.show_grid,
-            "trails" => self.ui_state.show_trails = !self.ui_state.show_trails,
-            "pause" => self.ui_state.pause_updates = !self.ui_state.pause_updates,
-            "menu" => self.ui_state.show_menu = !self.ui_state.show_menu,
-            "fullscreen" => self.ui_state.fullscreen = !self.ui_state.fullscreen,
-            "performance" => self.ui_state.performance_mode = !self.ui_state.performance_mode,
-            "timer" => self.ui_state.show_timer = !self.ui_state.show_timer,
-            "snap_x" => self.ui_state.snap_to_x_grid = !self.ui_state.snap_to_x_grid,
-            "snap_y" => self.ui_state.snap_to_y_grid = !self.ui_state.snap_to_y_grid,
-            "high_res" => self.ui_state.high_resolution = !self.ui_state.high_resolution,
-            _ => {}
+    /// Procesa mensajes MIDI y agrega notas
+    pub fn process_midi_messages(&mut self, win: Rect) {
+        if let Some(ref midi_server) = self.midi_server {
+            let midi_notes = midi_server.get_notes();
+            
+            for midi_note in midi_notes {
+                // Asignar posición basada en frecuencia
+                let pos_y = map_range(
+                    midi_note.freq.log2(), 
+                    (80.0f32).log2(), 
+                    (2000.0f32).log2(), 
+                    win.bottom() + 20.0, 
+                    win.top() - 20.0
+                );
+                let pos_x = win.left() + win.w() * 0.1; // Posición fija en el lado izquierdo
+                
+                // Crear Note para el visualizador
+                let note = Note {
+                    event_type: "midi_note".to_string(),
+                    instrument: midi_note.instrument.clone(),
+                    time_alive: 0.0,
+                    duration: midi_note.dur,
+                    position: Vec2::new(pos_x, pos_y),
+                    size: midi_note.amp * 50.0 + 10.0,
+                    color: self.get_instrument_color(&midi_note.instrument),
+                };
+                
+                self.notes.push(note);
+                
+                // Incrementar estadísticas
+                self.osc_stats.total_messages += 1;
+                self.osc_stats.successful_messages += 1;
+            }
         }
     }
     
-    pub fn zoom_in(&mut self) {
-        self.ui_state.zoom_level = (self.ui_state.zoom_level * 1.2).min(5.0);
-    }
-    
-    pub fn zoom_out(&mut self) {
-        self.ui_state.zoom_level = (self.ui_state.zoom_level / 1.2).max(0.1);
-    }
-    
-    pub fn reset_zoom(&mut self) {
-        self.ui_state.zoom_level = 1.0;
-        self.ui_state.viewport_offset = Vec2::ZERO;
-    }
-    
-    pub fn change_theme(&mut self, theme: ColorTheme) {
-        self.ui_state.theme = theme.clone();
-        // Actualizar colores de la rejilla según el tema
-        match theme {
-            ColorTheme::Light => {
-                self.config.visual.background_color = [240, 245, 250];
-                self.config.visual.grid.major_color = [0.2, 0.3, 0.6, 0.4];
-                self.config.visual.grid.minor_color = [0.3, 0.4, 0.7, 0.2];
-                self.config.visual.grid.label_color = [0.1, 0.2, 0.4, 0.9];
-            },
-            ColorTheme::Dark => {
-                self.config.visual.background_color = [8, 15, 30];
-                self.config.visual.grid.major_color = [0.3, 0.7, 1.0, 0.25];
-                self.config.visual.grid.minor_color = [0.2, 0.5, 0.8, 0.12];
-                self.config.visual.grid.label_color = [0.8, 0.9, 1.0, 0.9];
-            },
-            ColorTheme::Blue => {
-                self.config.visual.background_color = [15, 25, 40];
-                self.config.visual.grid.major_color = [0.4, 0.8, 1.0, 0.3];
-                self.config.visual.grid.minor_color = [0.3, 0.6, 0.9, 0.15];
-                self.config.visual.grid.label_color = [0.9, 0.95, 1.0, 0.95];
-            },
-            ColorTheme::Classic => {
-                self.config.visual.background_color = [20, 20, 20];
-                self.config.visual.grid.major_color = [0.5, 0.5, 0.5, 0.3];
-                self.config.visual.grid.minor_color = [0.3, 0.3, 0.3, 0.15];
-                self.config.visual.grid.label_color = [0.9, 0.9, 0.9, 0.9];
-            },
+    /// Obtiene el color para un instrumento específico
+    pub fn get_instrument_color(&self, instrument: &str) -> Srgb<u8> {
+        match instrument {
+            "sine" => srgb(0, 120, 255),      // Azul
+            "triangle" => srgb(0, 255, 120),  // Verde
+            "square" => srgb(255, 60, 60),    // Rojo
+            "sawtooth" => srgb(255, 255, 0),  // Amarillo
+            "piano" => srgb(160, 60, 255),    // Púrpura
+            "bell" => srgb(0, 255, 255),      // Cian
+            "pad" => srgb(255, 0, 255),       // Magenta
+            "lead" => srgb(255, 165, 0),      // Naranja
+            "drums" => srgb(255, 100, 100),   // Rojo claro
+            _ => srgb(200, 200, 200),         // Gris por defecto
         }
     }
     
-    pub fn adjust_grid_resolution(&mut self, delta: i32) {
-        let new_resolution = (self.ui_state.grid_resolution as i32 + delta).max(4).min(32) as u32;
-        self.ui_state.grid_resolution = new_resolution;
-        self.config.visual.grid.major_lines = new_resolution;
-    }
-    
-    pub fn get_background_color(&self) -> Rgb<u8> {
-        let [r, g, b] = self.config.visual.background_color;
-        rgb(r, g, b)
-    }
-    
-    pub fn fit_to_window(&mut self) {
-        // Ajustar el zoom y viewport para que el contenido se ajuste a la ventana
-        self.ui_state.zoom_level = 1.0;
-        self.ui_state.viewport_offset = Vec2::ZERO;
-    }
-    
-    pub fn resize_viewport(&mut self, new_size: Vec2) {
-        // Ajustar el viewport a un nuevo tamaño
-        self.ui_state.viewport_offset = Vec2::ZERO;
-        println!("📏 Viewport redimensionado a: {}x{}", new_size.x, new_size.y);
-    }
-    
-    pub fn save_session(&self, filename: &str) -> Result<(), String> {
-        // Guardar la sesión actual (configuración y estado)
-        let session_data = format!(
-            "# SC Score Visualizer Session\n\
-            zoom_level = {}\n\
-            theme = \"{:?}\"\n\
-            performance_mode = {}\n\
-            fullscreen = {}\n\
-            show_timer = {}\n\
-            snap_to_x_grid = {}\n\
-            snap_to_y_grid = {}\n\
-            grid_resolution = {}\n\
-            high_resolution = {}\n\
-            frequency_range = [{}, {}]\n\
-            time_range = {}\n",
-            self.ui_state.zoom_level,
-            self.ui_state.theme,
-            self.ui_state.performance_mode,
-            self.ui_state.fullscreen,
-            self.ui_state.show_timer,
-            self.ui_state.snap_to_x_grid,
-            self.ui_state.snap_to_y_grid,
-            self.ui_state.grid_resolution,
-            self.ui_state.high_resolution,
-            self.config.visual.grid.frequency_range.0,
-            self.config.visual.grid.frequency_range.1,
-            self.config.visual.grid.time_range
+    /// Añade una nueva nota visual avanzada (método principal para el nuevo sistema)
+    pub fn add_visual_note(&mut self, freq: f32, amp: f32, dur: f32, instrument: &str, win: Rect) -> &VisualNote {
+        let visual_note = self.audio_visual_mapper.map_audio_to_visual(
+            freq,
+            amp,
+            dur,
+            instrument,
+            win,
         );
         
-        std::fs::write(filename, session_data).map_err(|e| e.to_string())
+        self.visual_notes.push(visual_note);
+        self.visual_notes.last().unwrap()
     }
     
-    pub fn load_session(&mut self, filename: &str) -> Result<(), String> {
-        // Cargar una sesión previamente guardada
-        let _content = std::fs::read_to_string(filename).map_err(|e| e.to_string())?;
-        // Implementar parsing de la sesión aquí
-        println!("📂 Sesión cargada desde: {}", filename);
-        Ok(())
-    }
-    
-    pub fn export_image(&self, filename: &str) -> Result<(), String> {
-        // Exportar una imagen de la visualización actual
-        println!("🖼️ Exportando imagen a: {}", filename);
-        // Implementar exportación de imagen aquí
-        Ok(())
-    }
-    
-    pub fn export_video(&self, filename: &str) -> Result<(), String> {
-        // Exportar un video de la visualización
-        println!("🎥 Exportando video a: {}", filename);
-        // Implementar exportación de video aquí
-        Ok(())
-    }
-    
-    pub fn copy_screenshot(&self) -> Result<(), String> {
-        // Copiar una captura de pantalla al portapapeles
-        println!("📋 Copiando captura de pantalla al portapapeles");
-        // Implementar copia al portapapeles aquí
-        Ok(())
-    }
-    
-    pub fn show_preferences(&mut self) {
-        // Mostrar ventana de preferencias
-        println!("⚙️ Abriendo ventana de preferencias");
-        // Implementar ventana de preferencias aquí
-    }
-    
-    pub fn reset_settings(&mut self) {
-        // Restablecer todas las configuraciones a valores por defecto
-        self.ui_state = UiState::default();
-        self.config = Config::default();
-        println!("🔄 Configuraciones restablecidas a valores por defecto");
-    }
-    
-    pub fn get_current_time_formatted(&self) -> String {
-        // Obtener el tiempo actual formateado para el timer
-        use std::time::SystemTime;
-        let now = SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        
-        let hours = (now / 3600) % 24;
-        let minutes = (now / 60) % 60;
-        let seconds = now % 60;
-        
-        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
-    }
-    
-    pub fn get_session_duration(&self) -> String {
-        // Obtener la duración de la sesión actual
-        let duration = self.last_cleanup.elapsed();
-        let hours = duration.as_secs() / 3600;
-        let minutes = (duration.as_secs() % 3600) / 60;
-        let seconds = duration.as_secs() % 60;
-        
-        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
-    }
-    
-    // ...existing code...
-}
-
-// =================================================================
-// UTILIDADES DE CONFIGURACIÓN
-// =================================================================
-
-pub fn load_config() -> Config {
-    match std::fs::read_to_string("config.toml") {
-        Ok(content) => {
-            match toml::from_str::<Config>(&content) {
-                Ok(config) => {
-                    println!("✅ Configuración cargada desde config.toml");
-                    config
-                }
-                Err(e) => {
-                    eprintln!("⚠️ Error al parsear config.toml: {}. Usando configuración por defecto.", e);
-                    Config::default()
-                }
-            }
+    /// Actualiza todas las notas visuales (animación)
+    pub fn update_visual_notes(&mut self, delta_time: f32, win: Rect) {
+        // Actualizar todas las notas
+        for note in &mut self.visual_notes {
+            self.audio_visual_mapper.update_visual_note(note, delta_time);
         }
-        Err(e) => {
-            eprintln!("⚠️ No se pudo cargar 'config.toml': {}. Usando configuración por defecto.", e);
-            Config::default()
-        }
+        
+        // Remover notas que han expirado
+        self.visual_notes.retain(|note| 
+            !self.audio_visual_mapper.should_remove_note(note, win)
+        );
+    }
+    
+    /// Obtiene las notas visuales ordenadas por capa y prioridad
+    pub fn get_visual_notes_sorted(&self) -> Vec<&VisualNote> {
+        let mut sorted_notes: Vec<&VisualNote> = self.visual_notes.iter().collect();
+        sorted_notes.sort_by(|a, b| {
+            a.layer.cmp(&b.layer)
+                .then(a.priority.cmp(&b.priority))
+        });
+        sorted_notes
+    }
+    
+    /// Limpia todas las notas visuales
+    pub fn clear_visual_notes(&mut self) {
+        self.visual_notes.clear();
+    }
+    
+    /// Métodos para el mapeador profesional
+    
+    /// Calcula posición X usando scroll profesional
+    pub fn get_pro_x_position(&self, freq: f32, current_time: f32, note_birth_time: f32) -> f32 {
+        self.pro_mapper.freq_to_x_scroll(freq, current_time, note_birth_time)
+    }
+    
+    /// Calcula opacidad usando escala logarítmica profesional
+    pub fn get_pro_opacity(&self, amplitude: f32) -> f32 {
+        self.pro_mapper.amp_to_opacity(amplitude)
+    }
+    
+    /// Obtiene color usando paletas artísticas profesionales
+    pub fn get_pro_color(&self, freq: f32, amplitude: f32) -> Srgb<u8> {
+        self.pro_mapper.freq_to_color(freq, amplitude)
+    }
+    
+    /// Obtiene forma visual según tipo de evento profesional
+    pub fn get_pro_shape(&self, kind: &EventKind, freq: f32, amplitude: f32, duration: f32) -> VisualShape {
+        self.pro_mapper.kind_to_shape(kind, freq, amplitude, duration)
+    }
+    
+    /// Cambia la paleta de colores del mapeador profesional
+    pub fn set_pro_color_palette(&mut self, palette: ColorPalette) {
+        self.pro_mapper.set_color_palette(palette);
+    }
+    
+    /// Actualiza el tiempo de inicio para cálculos de scroll
+    pub fn set_pro_start_time(&mut self, time: f32) {
+        self.pro_mapper.set_start_time(time);
+    }
+    
+    /// Método conveniente para crear nota con mapeo profesional
+    pub fn add_pro_visual_note(&mut self, freq: f32, amp: f32, dur: f32, instrument: &str, event_kind: EventKind, current_time: f32) {
+        // Obtener propiedades usando mapeo profesional
+        let opacity = self.get_pro_opacity(amp);
+        let color = self.get_pro_color(freq, amp);
+        let shape = self.get_pro_shape(&event_kind, freq, amp, dur);
+        
+        // Crear nota visual usando el sistema existente pero con propiedades profesionales
+        let mut visual_note = self.audio_visual_mapper.map_audio_to_visual(
+            freq, amp, dur, instrument, 
+            Rect::from_w_h(self.pro_mapper.get_config().window_width, self.pro_mapper.get_config().window_height)
+        );
+        
+        // Aplicar mejoras profesionales
+        visual_note.opacity = opacity;
+        visual_note.color = color;
+        
+        // Calcular posición X profesional (nota: necesitaríamos el tiempo de nacimiento)
+        // visual_note.position.x = self.get_pro_x_position(freq, current_time, current_time);
+        
+        self.visual_notes.push(visual_note);
+    }
+    
+    /// **Actualiza el tiempo transcurrido en el modelo y shader manager**
+    pub fn update_time(&mut self, elapsed: f32) {
+        self.elapsed_time = elapsed;
+        self.shader_manager.update_time(elapsed);
+    }
+    
+    /// **Crea una nota visual usando el sistema profesional de mapeo**
+    pub fn create_professional_note(
+        &mut self,
+        freq: f32,
+        amplitude: f32,
+        duration: f32,
+        event_type: &str,
+        instrument: &str,
+    ) {
+        use crate::visual::shader_manager::string_to_event_kind;
+        
+        let event_kind = string_to_event_kind(event_type);
+        let birth_time = self.elapsed_time;
+        
+        let visual_note = self.shader_manager.create_professional_visual_note(
+            freq,
+            amplitude,
+            duration,
+            event_kind,
+            birth_time,
+            instrument,
+        );
+        
+        self.visual_notes.push(visual_note);
     }
 }

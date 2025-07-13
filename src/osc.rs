@@ -39,12 +39,27 @@ pub fn setup_osc_receiver(port: u16) -> Result<Receiver<Packet>, Box<dyn std::er
 
 pub fn process_osc_packet(packet: &Packet, window_rect: nannou::geom::Rect) -> Option<OscMessage> {
     if let Packet::Message(msg) = packet {
+        println!("🔍 Procesando mensaje OSC: {}", msg.addr);
         match msg.addr.as_str() {
-            "/event" => parse_event_message(msg, window_rect),
-            "/realtime_audio" => parse_realtime_message(msg),
-            _ => None,
+            "/event" => {
+                println!("🎵 Procesando /event");
+                parse_event_message(msg, window_rect)
+            },
+            "/realtime_audio" => {
+                println!("📊 Procesando /realtime_audio");
+                parse_realtime_message(msg)
+            },
+            "/test" => {
+                println!("🧪 Mensaje de prueba recibido");
+                None
+            },
+            _ => {
+                println!("❓ Mensaje OSC desconocido: {}", msg.addr);
+                None
+            }
         }
     } else {
+        println!("⚠️ Paquete OSC no es un mensaje");
         None
     }
 }
@@ -61,14 +76,23 @@ pub enum OscMessage {
 
 fn parse_event_message(msg: &osc::Message, window_rect: nannou::geom::Rect) -> Option<OscMessage> {
     if let Some(args) = &msg.args {
+        println!("🔍 Parseando /event con {} argumentos", args.len());
+        
         if args.len() < 7 {
+            println!("❌ /event: Insuficientes argumentos (necesarios 7, recibidos {})", args.len());
             return None;
         }
     
         // Extraer tipo de evento
         let event_type_str = match args.get(0) {
-            Some(osc::Type::String(s)) => s.clone(),
-            _ => return None,
+            Some(osc::Type::String(s)) => {
+                println!("📝 Tipo de evento: {}", s);
+                s.clone()
+            },
+            _ => {
+                println!("❌ /event: Primer argumento no es string");
+                return None;
+            }
         };
         
         // Extraer argumentos numéricos
@@ -76,14 +100,24 @@ fn parse_event_message(msg: &osc::Message, window_rect: nannou::geom::Rect) -> O
         for i in 1..7 {
             if let Some(arg) = args.get(i) {
                 match arg {
-                    osc::Type::Float(f) => numeric_args.push(*f),
-                    osc::Type::Int(i) => numeric_args.push(*i as f32),
-                    _ => numeric_args.push(0.0),
+                    osc::Type::Float(f) => {
+                        println!("📊 Arg {}: {} (float)", i, f);
+                        numeric_args.push(*f);
+                    },
+                    osc::Type::Int(i_val) => {
+                        println!("📊 Arg {}: {} (int->float)", i, i_val);
+                        numeric_args.push(*i_val as f32);
+                    },
+                    _ => {
+                        println!("⚠️ Arg {}: tipo no soportado, usando 0.0", i);
+                        numeric_args.push(0.0);
+                    }
                 }
             }
         }
         
         if numeric_args.len() < 6 {
+            println!("❌ /event: Insuficientes args numéricos");
             return None;
         }
         
