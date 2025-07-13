@@ -2,30 +2,41 @@
 name = "sc_score_visualizer"
 version = "2.0.0"
 edition = "2021"
-description = "Live Coding Visualizer with Nannou and SuperCollider"
+description = "Real-time audio visualization system for SuperCollider"
+authors = ["SC Score Visualizer Team"]
 license = "MIT"
+repository = "https://github.com/twistin/supercollider-score-visualizer"
+keywords = ["audio", "visualization", "supercollider", "osc", "nannou"]
+categories = ["multimedia", "visualization"]
 
+[dependencies]
+# Nannou - Creative coding framework for graphics and audio
+nannou = "0.19.0"
+# Nannou OSC - Open Sound Control protocol support for real-time communication
+nannou_osc = "0.19.0"
+# Logging and error handling
+log = "0.4"
+env_logger = "0.10"
+anyhow = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+# Configuración external files
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+# MIDI support
+midir = "0.9"
 
+[package.metadata.scripts]
+# Scripts de mantenimiento y desarrollo
+clean = "bash scripts/clean.sh"
+dev = "bash scripts/dev_tasks.sh"
+format = "cargo fmt --all"
+check = "cargo check --all-targets"
+lint = "cargo clippy --all-targets --all-features -- -D warnings"
+build-release = "cargo build --release"
+full-check = "bash scripts/dev_tasks.sh full-check"
+test = "cargo test"
 
 [[bin]]
 name = "sc_score_visualizer"
 path = "src/main.rs"
-
-[dependencies]
-nannou = "0.18"
-nannou_osc = "0.18"
-noise = "0.8"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
-config = "0.11"
-anyhow = "1.0"
-thiserror = "1.0"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-notify = "6.1"
-tokio = { version = "1.0", features = ["rt", "sync", "fs", "rt-multi-thread"] }
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1

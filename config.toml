@@ -1,25 +1,77 @@
-# 🎵 SC Score Visualizer Configuration
-# Configuration file that matches the expected structure
-
-[visual]
-time_window = 10.0
-max_events = 200
-background_color = [8, 15, 30]   # Darker blue background [R, G, B]
-event_fade_time = 3.0
-
-[visual.grid]
-show_labels = true
-show_frequency_labels = true
-show_time_labels = true
-major_lines = 8
-minor_lines = 4
-major_color = [0.3, 0.7, 1.0, 0.25]    # Bright blue for major lines
-minor_color = [0.2, 0.5, 0.8, 0.12]    # Soft blue for minor lines
-center_color = [0.4, 0.8, 1.0, 0.5]    # Cyan blue for center lines
-label_color = [0.8, 0.9, 1.0, 0.9]     # Light blue for labels
-musical_divisions = true
-frequency_range = [80.0, 2000.0]
-time_range = 10.0
+# SC Score Visualizer - Configuración Principal
+# Archivo de configuración para el visualizador de audio
 
 [osc]
-port = 57124  # OSC port for receiving messages
+# Configuración del servidor OSC
+listen_host = "127.0.0.1"
+listen_port = 57124
+buffer_size = 1024
+timeout_ms = 10
+max_messages_per_frame = 50
+
+[window]
+# Configuración de la ventana principal
+width = 1200
+height = 800
+title = "SC Score Visualizer v2.0"
+vsync = true
+resizable = true
+
+[visual]
+# Configuración visual por defecto
+quality = "High"  # Low, Medium, High, Ultra
+background_style = "Modern"  # Modern, Simple, Gradient, None
+show_debug = true
+show_grid = true
+fps_target = 60
+time_window = 10.0
+max_events = 200
+background_color = [8, 15, 30]
+event_fade_time = 3.0
+
+[audio]
+# Rangos de validación para parámetros de audio
+freq_min = 20.0
+freq_max = 20000.0
+amp_min = 0.0
+amp_max = 1.0
+dur_min = 0.1
+dur_max = 10.0
+
+[performance]
+# Configuración de rendimiento
+max_notes = 100
+max_drones = 10
+max_cluster_particles = 100
+cleanup_interval_frames = 300  # Limpiar eventos expirados cada 5 segundos a 60fps
+
+[midi]
+# Configuración MIDI (opcional)
+enabled = true
+default_note_duration = 1.0  # Duración por defecto para notas MIDI en segundos
+velocity_scaling = 1.0        # Escalado de velocidad (1.0 = normal, 0.5 = más suave)
+channel_instruments = [       # Mapeo de canales MIDI a instrumentos
+    "piano",    # Canal 1
+    "sine",     # Canal 2  
+    "triangle", # Canal 3
+    "square",   # Canal 4
+    "sawtooth", # Canal 5
+    "bell",     # Canal 6
+    "pad",      # Canal 7
+    "lead",     # Canal 8
+    "drums",    # Canal 9 (batería)
+    "sine",     # Canal 10
+    "sine",     # Canal 11
+    "sine",     # Canal 12
+    "sine",     # Canal 13
+    "sine",     # Canal 14
+    "sine",     # Canal 15
+    "sine"      # Canal 16
+]
+
+[logging]
+# Configuración de logging
+level = "Info"  # Debug, Info, Warning, Error
+show_osc_messages = true
+show_performance_stats = true
+stats_interval_frames = 300
