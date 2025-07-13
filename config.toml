@@ -4,7 +4,7 @@
 [osc]
 # Configuración del servidor OSC
 listen_host = "127.0.0.1"
-listen_port = 57124
+listen_port = 7777
 buffer_size = 1024
 timeout_ms = 10
 max_messages_per_frame = 50
