@@ -1,0 +1,10 @@
+/home/runner/work/supercollider-score-visualizer/supercollider-score-visualizer/target/debug/deps/rosc-313265d85837e1d4.d: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/errors.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/types.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/address.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/decoder.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/encoder.rs
+
+/home/runner/work/supercollider-score-visualizer/supercollider-score-visualizer/target/debug/deps/librosc-313265d85837e1d4.rmeta: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/errors.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/types.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/address.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/decoder.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/encoder.rs
+
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/lib.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/errors.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/types.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/address.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/decoder.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rosc-0.10.1/src/encoder.rs:
