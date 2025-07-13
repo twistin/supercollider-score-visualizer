@@ -26,7 +26,7 @@ SynthDef(\RealtimeAnalyzer, {
     amp = Amplitude.kr(in, 0.01, 0.1);  // Amplitud con ataque/release rápido
 
     // === ANÁLISIS DE PITCH ===
-    # pitch, hasFreq = Pitch.kr(
+    #pitch, hasFreq = Pitch.kr(
         in,
         initFreq: 440,
         minFreq: 60,
@@ -220,6 +220,6 @@ OSCdef(\analyzerDebug, {
 )
 
 // En SuperCollider:
-thisProcess.interpreter.executeFile("realtime_analysis_alt.scd".resolveRelative);
-~testAnalysisAlt.();
-~stopTestAlt.()
+// thisProcess.interpreter.executeFile("realtime_analysis.scd".resolveRelative);
+// ~testAnalysis.();
+// ~stopTest.()

@@ -188,14 +188,11 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
     // Procesar nuevos eventos OSC
     while let Ok(msg) = model.osc_receiver.try_recv() {
-        println!("� MENSAJE OSC RECIBIDO: {} con {} args: {:?}", msg.addr, msg.args.len(), msg.args);
         
         match msg.addr.as_str() {
             "/realtime_audio" => {
-                println!("🎵 Procesando mensaje de audio en tiempo real...");
                 // Procesar datos de análisis de audio en tiempo real
                 if let Some(analysis) = parse_realtime_audio(&msg, current_time) {
-                    println!("✅ Análisis parseado exitosamente: pitch={:.2}, onset={:.2}", analysis.pitch, analysis.onset);
                     model.audio_analysis_buffer.push_back(analysis.clone());
                     model.last_audio_analysis = Some(analysis);
                     
@@ -244,12 +241,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let win = app.window_rect();
     let current_time = app.time as f64 - model.app_start_time;
 
-    // Debug del estado de renderizado
-    if model.events.len() > 0 || model.last_audio_analysis.is_some() {
-        println!("🎨 RENDERIZANDO: {} eventos, análisis={:?}", 
-                 model.events.len(), 
-                 model.last_audio_analysis.as_ref().map(|a| (a.pitch, a.onset)));
-    }
+    // Debug del estado de renderizado - removed for performance
 
     // Fondo con gradiente sutil
     let bg = model.config.visual.background_color;
@@ -258,8 +250,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
     // Dibujar rejilla profesional
     draw_grid(&draw, &win);
 
-    // Dibujar cada evento (limitado para evitar sobrecarga)
-    let max_render_events = 50; // Limit rendering to prevent crashes
+    // Dibujar cada evento (optimizado para rendimiento)
+    let max_render_events = 100; // Increased from 50 for better visualization
     for event in model.events.iter().take(max_render_events) {
         render_event(&draw, &win, event, current_time, &model.config, &model.perlin);
     }
@@ -509,8 +501,75 @@ fn render_event(draw: &Draw, win: &Rect, event: &MusicalEvent, current_time: f64
                     .color(hsva(event.color.hue.into(), event.color.saturation, event.color.value, alpha * 0.8));
             }
         }
+        EventType::Noise { center_freq, bandwidth } => {
+            // Renderizar ruido como múltiples puntos aleatorios
+            let noise_points = (bandwidth * 0.1) as usize + 10;
+            for _i in 0..noise_points {
+                let freq_variation = (rand::random::<f32>() - 0.5) * bandwidth;
+                let freq = center_freq + freq_variation;
+                let y = freq_to_y(freq, win);
+                
+                let noise_x = x + (rand::random::<f32>() - 0.5) * 40.0;
+                let radius = event.amplitude * 3.0 + 1.0;
+                
+                draw.ellipse()
+                    .x_y(noise_x, y)
+                    .radius(radius)
+                    .color(hsva(event.color.hue.into(), event.color.saturation * 0.7, event.color.value, alpha * 0.6));
+            }
+        }
+        EventType::SoundMass { components } => {
+            // Renderizar masa sonora como múltiples componentes conectadas
+            for (i, (freq, amp)) in components.iter().enumerate() {
+                let y = freq_to_y(*freq, win);
+                let radius = (amp * event.amplitude * 12.0 + 2.0).clamp(1.0, 20.0);
+                
+                // Posición ligeramente desplazada para cada componente
+                let component_x = x + (i as f32 - components.len() as f32 / 2.0) * 8.0;
+                
+                draw.ellipse()
+                    .x_y(component_x, y)
+                    .radius(radius)
+                    .color(hsva(event.color.hue.into(), event.color.saturation, event.color.value, alpha * amp));
+                
+                // Conectar componentes con líneas
+                if i > 0 {
+                    let prev_freq = components[i - 1].0;
+                    let prev_y = freq_to_y(prev_freq, win);
+                    let prev_x = x + ((i - 1) as f32 - components.len() as f32 / 2.0) * 8.0;
+                    
+                    draw.line()
+                        .start(pt2(prev_x, prev_y))
+                        .end(pt2(component_x, y))
+                        .color(hsva(event.color.hue.into(), event.color.saturation, event.color.value, alpha * 0.3))
+                        .stroke_weight(1.0);
+                }
+            }
+        }
+        EventType::RealtimeAudio { pitch, amplitude, onset, has_freq, spectral_centroid: _, spectral_flux: _, spectral_rolloff: _, spectral_flatness: _, harmonicity, noisiness: _, spectral_slope: _ } => {
+            // Renderizar datos de audio en tiempo real como visualización compleja
+            if *has_freq > 0.5 {
+                let y = freq_to_y(*pitch, win);
+                let radius = amplitude * 20.0 + 5.0;
+                
+                // Color basado en harmonicidad
+                let hue = if *harmonicity > 0.7 { 0.6 } else { 0.1 }; // Azul para tonal, rojo para ruidoso
+                
+                draw.ellipse()
+                    .x_y(x, y)
+                    .radius(radius)
+                    .color(hsva(hue, 0.8, 0.9, alpha * amplitude));
+                
+                // Onset como flash
+                if *onset > 0.5 {
+                    draw.ellipse()
+                        .x_y(x, y)
+                        .radius(radius * 2.0)
+                        .color(hsva(hue, 0.4, 1.0, alpha * onset * 0.5));
+                }
+            }
+        }
         // Implementar Noise y SoundMass si es necesario
-        _ => {}
     }
 }
 
@@ -519,22 +578,16 @@ fn render_realtime_audio(draw: &Draw, win: &Rect, model: &Model, current_time: f
     if let Some(ref analysis) = model.last_audio_analysis {
         let data_age = current_time - analysis.timestamp;
         
-        println!("🎬 Intentando renderizar: pitch={:.1}, amp={:.3}, age={:.3}s", 
-                 analysis.pitch, analysis.amplitude, data_age);
-        
         // Solo mostrar datos de los últimos 100ms para evitar lag visual
         if data_age > 0.1 {
-            println!("❌ Datos demasiado antiguos: {:.3}s", data_age);
             return;
         }
         
-        // Solo renderizar si hay actividad significativa
-        if analysis.amplitude < 0.01 {
-            println!("❌ Amplitud demasiado baja: {:.3}", analysis.amplitude);
+        // Solo renderizar si hay actividad significativa (threshold más permisivo)
+        if analysis.amplitude < 0.001 {
             return;
         }
         
-        println!("✅ RENDERIZANDO VISUAL: pitch={:.1}Hz, amp={:.3}", analysis.pitch, analysis.amplitude);
         
         // === RENDERIZADO ESTILO XENAKIS ===
         render_xenakis_style(draw, win, analysis, current_time);
@@ -547,7 +600,7 @@ fn render_realtime_audio(draw: &Draw, win: &Rect, model: &Model, current_time: f
     }
 }
 
-fn render_xenakis_style(draw: &Draw, win: &Rect, analysis: &AudioAnalysis, current_time: f64) {
+fn render_xenakis_style(draw: &Draw, win: &Rect, analysis: &AudioAnalysis, _current_time: f64) {
     if analysis.has_freq > 0.5 && analysis.pitch > 60.0 {
         // Renderizar pitch como partícula brillante en movimiento
         let y = freq_to_y(analysis.pitch, win);
@@ -556,34 +609,42 @@ fn render_xenakis_style(draw: &Draw, win: &Rect, analysis: &AudioAnalysis, curre
         let radius = analysis.amplitude * 30.0 + 3.0;
         let color = freq_to_color(analysis.pitch);
         
-        // Partícula principal con glow
+        // Uso de spectral_flux para modificar la intensidad del glow
+        let glow_intensity = (analysis.spectral_flux * 2.0).clamp(0.0, 1.0);
+        
+        // Partícula principal con glow variable basado en flux
         draw.ellipse()
             .x_y(x, y)
-            .radius(radius * 2.0)
-            .color(hsva(color.hue.into(), color.saturation * 0.3, color.value * 0.5, 0.3));
+            .radius(radius * (2.0 + glow_intensity))
+            .color(hsva(color.hue.into(), color.saturation * 0.3, color.value * 0.5, 0.3 * glow_intensity));
             
         draw.ellipse()
             .x_y(x, y)
             .radius(radius)
             .color(hsva(color.hue.into(), color.saturation, color.value, analysis.amplitude));
-            
-        // Estela de movimiento (trail effect)
-        let trail_length = 10;
+        
+        // Uso de spectral_rolloff para modificar el trail
+        let trail_length = ((analysis.spectral_rolloff / 2000.0) * 15.0).clamp(5.0, 20.0) as usize;
+        
+        // Estela de movimiento (trail effect) usando spectral_flatness
         for i in 0..trail_length {
             let trail_x = x + (i as f32 * 8.0);
             let trail_alpha = analysis.amplitude * (1.0 - i as f32 / trail_length as f32) * 0.5;
             let trail_radius = radius * (1.0 - i as f32 / trail_length as f32 * 0.7);
             
+            // Usar spectral_flatness para la distorsión del trail
+            let y_offset = analysis.spectral_flatness * 10.0 * ((i as f32 / 3.0).sin());
+            
             if trail_alpha > 0.01 {
                 draw.ellipse()
-                    .x_y(trail_x, y)
+                    .x_y(trail_x, y + y_offset)
                     .radius(trail_radius)
                     .color(hsva(color.hue.into(), color.saturation, color.value, trail_alpha));
             }
         }
     }
     
-    // Renderizar ruido como textura granular
+    // Renderizar ruido como textura granular usando spectral_slope
     if analysis.noisiness > 0.3 {
         let noise_particles = (analysis.noisiness * 20.0) as usize;
         for i in 0..noise_particles {
@@ -591,10 +652,13 @@ fn render_xenakis_style(draw: &Draw, win: &Rect, analysis: &AudioAnalysis, curre
             let y = win.bottom() + rand::random::<f32>() * win.h();
             let size = analysis.amplitude * analysis.noisiness * 5.0;
             
+            // Usar spectral_slope para afectar el color del ruido
+            let slope_hue = (analysis.spectral_slope + 1.0) * 0.5; // Normalize to 0-1
+            
             draw.ellipse()
                 .x_y(x, y)
                 .radius(size)
-                .color(rgba(0.8, 0.9, 1.0, analysis.amplitude * analysis.noisiness * 0.3));
+                .color(hsva(slope_hue, 0.6, 0.9, analysis.amplitude * analysis.noisiness * 0.3));
         }
     }
 }
@@ -735,24 +799,26 @@ fn parse_realtime_audio(msg: &osc::Message, current_time: f64) -> Option<AudioAn
     
     // Verificar que tenemos al menos 8 argumentos básicos
     if args.len() < 8 {
-        println!("❌ Error: Se esperaban al menos 8 argumentos, recibidos: {}", args.len());
         return None;
     }
 
-    println!("🔧 Parseando {} argumentos de audio", args.len());
+    // Función auxiliar para validar valores
+    let validate_float = |val: f32| -> f32 {
+        if val.is_finite() { val } else { 0.0 }
+    };
 
     Some(AudioAnalysis {
-        pitch: get_float(args.get(0)?).unwrap_or(0.0),
-        amplitude: get_float(args.get(1)?).unwrap_or(0.0),
-        onset: get_float(args.get(2)?).unwrap_or(0.0),
-        has_freq: get_float(args.get(3)?).unwrap_or(1.0),  // Asumimos que hay frecuencia por defecto
-        spectral_centroid: get_float(args.get(4)?).unwrap_or(1000.0),
-        spectral_flux: get_float(args.get(5)?).unwrap_or(0.0),
-        spectral_rolloff: get_float(args.get(6)?).unwrap_or(2000.0),
-        spectral_flatness: get_float(args.get(7)?).unwrap_or(0.5),
-        harmonicity: args.get(8).map_or(0.5, |arg| get_float(arg).unwrap_or(0.5)),
-        noisiness: args.get(9).map_or(0.5, |arg| get_float(arg).unwrap_or(0.5)),
-        spectral_slope: args.get(10).map_or(0.0, |arg| get_float(arg).unwrap_or(0.0)),
+        pitch: validate_float(get_float(args.get(0)?).unwrap_or(0.0)),
+        amplitude: validate_float(get_float(args.get(1)?).unwrap_or(0.0)),
+        onset: validate_float(get_float(args.get(2)?).unwrap_or(0.0)),
+        has_freq: validate_float(get_float(args.get(3)?).unwrap_or(1.0)),  // Asumimos que hay frecuencia por defecto
+        spectral_centroid: validate_float(get_float(args.get(4)?).unwrap_or(1000.0)),
+        spectral_flux: validate_float(get_float(args.get(5)?).unwrap_or(0.0)),
+        spectral_rolloff: validate_float(get_float(args.get(6)?).unwrap_or(2000.0)),
+        spectral_flatness: validate_float(get_float(args.get(7)?).unwrap_or(0.5)),
+        harmonicity: validate_float(args.get(8).map_or(0.5, |arg| get_float(arg).unwrap_or(0.5))),
+        noisiness: validate_float(args.get(9).map_or(0.5, |arg| get_float(arg).unwrap_or(0.5))),
+        spectral_slope: validate_float(args.get(10).map_or(0.0, |arg| get_float(arg).unwrap_or(0.0))),
         timestamp: current_time,
     })
 }
@@ -764,10 +830,7 @@ fn freq_to_y(freq: f32, win: &Rect) -> f32 {
     map_range(freq_log, min_freq_log, max_freq_log, win.bottom(), win.top())
 }
 
-fn time_to_x(event_time: f64, current_time: f64, win: &Rect, time_window: f64) -> f32 {
-    // Mapea el tiempo a la posición X, moviéndose de derecha a izquierda
-    map_range(event_time, current_time, current_time + time_window, win.right(), win.left())
-}
+
 
 fn freq_to_color(freq: f32) -> Hsv {
     let min_log = 20.0f32.log10();
@@ -791,4 +854,107 @@ fn freq_to_color(freq: f32) -> Hsv {
     let value = 0.9 + (freq_log * 0.05).cos() * 0.1;     // Ligera variación en brillo
     
     hsv(hue, saturation.clamp(0.7, 1.0), value.clamp(0.8, 1.0))
+}
+
+// =====================================================================
+// 🧪 UNIT TESTS
+// =====================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nannou_osc::Type;
+
+    #[test]
+    fn test_get_float() {
+        assert_eq!(get_float(&Type::Float(1.5)), Some(1.5));
+        assert_eq!(get_float(&Type::Int(42)), Some(42.0));
+        assert_eq!(get_float(&Type::String("test".to_string())), None);
+    }
+
+    #[test]
+    fn test_freq_to_color() {
+        let color = freq_to_color(440.0);
+        assert!(color.hue.to_positive_degrees() >= 0.0);
+        assert!(color.hue.to_positive_degrees() <= 360.0);
+        assert!(color.saturation >= 0.7);
+        assert!(color.value >= 0.8);
+    }
+
+    #[test]
+    fn test_freq_to_y() {
+        let win = nannou::geom::Rect::from_w_h(800.0, 600.0);
+        let y1 = freq_to_y(440.0, &win);
+        let y2 = freq_to_y(880.0, &win);
+        assert!(y2 > y1); // Higher frequency should have higher Y position
+    }
+
+    #[test]
+    fn test_parse_realtime_audio() {
+        let args = vec![
+            Type::Float(440.0),  // pitch
+            Type::Float(0.5),    // amplitude
+            Type::Float(0.0),    // onset
+            Type::Float(0.9),    // has_freq
+            Type::Float(1000.0), // spectral_centroid
+            Type::Float(0.1),    // spectral_flux
+            Type::Float(2000.0), // spectral_rolloff
+            Type::Float(0.3),    // spectral_flatness
+        ];
+        
+        let msg = nannou_osc::Message {
+            addr: "/realtime_audio".to_string(),
+            args,
+        };
+        
+        let result = parse_realtime_audio(&msg, 0.0);
+        assert!(result.is_some());
+        
+        let analysis = result.unwrap();
+        assert_eq!(analysis.pitch, 440.0);
+        assert_eq!(analysis.amplitude, 0.5);
+        assert_eq!(analysis.onset, 0.0);
+        assert_eq!(analysis.has_freq, 0.9);
+    }
+
+    #[test]
+    fn test_parse_realtime_audio_insufficient_args() {
+        let args = vec![
+            Type::Float(440.0),  // Only 1 argument, need at least 8
+        ];
+        
+        let msg = nannou_osc::Message {
+            addr: "/realtime_audio".to_string(),
+            args,
+        };
+        
+        let result = parse_realtime_audio(&msg, 0.0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_realtime_audio_invalid_values() {
+        let args = vec![
+            Type::Float(f32::NAN),    // Invalid pitch
+            Type::Float(0.5),         // amplitude
+            Type::Float(f32::INFINITY), // Invalid onset
+            Type::Float(0.9),         // has_freq
+            Type::Float(1000.0),      // spectral_centroid
+            Type::Float(0.1),         // spectral_flux
+            Type::Float(2000.0),      // spectral_rolloff
+            Type::Float(0.3),         // spectral_flatness
+        ];
+        
+        let msg = nannou_osc::Message {
+            addr: "/realtime_audio".to_string(),
+            args,
+        };
+        
+        let result = parse_realtime_audio(&msg, 0.0);
+        assert!(result.is_some());
+        
+        let analysis = result.unwrap();
+        assert_eq!(analysis.pitch, 0.0);  // NaN should be replaced with 0.0
+        assert_eq!(analysis.onset, 0.0);  // Infinity should be replaced with 0.0
+    }
 }
