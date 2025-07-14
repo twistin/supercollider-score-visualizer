@@ -10,7 +10,7 @@ echo ""
 
 # Verificar que el proyecto esté compilado
 if [ ! -f "./target/release/sc_score_visualizer" ]; then
-    echo "� Compilando proyecto..."
+    echo "🔧 Compilando proyecto..."
     cargo build --release --quiet
     if [ $? -eq 0 ]; then
         echo "✅ Compilación exitosa"
@@ -21,9 +21,9 @@ if [ ! -f "./target/release/sc_score_visualizer" ]; then
 fi
 
 # Verificar puerto OSC
-PORT=$(grep 'port' config.toml | grep -o '[0-9]*' 2>/dev/null || echo "57124")
+PORT=$(grep 'listen_port' config.toml | grep -o '[0-9]*' 2>/dev/null || echo "7777")
 if lsof -i :$PORT > /dev/null 2>&1; then
-    echo "⚠️ Puerto $PORT ya está en uso"
+    echo "⚠️  Puerto $PORT ya está en uso"
     echo "🛑 Terminando procesos previos..."
     pkill -f sc_score_visualizer
     sleep 2
@@ -34,22 +34,24 @@ echo "🚀 Iniciando visualizador en puerto $PORT..."
 echo ""
 echo "🎹 Controles disponibles:"
 echo "   G - Mostrar/ocultar grilla"
-echo "   S - Mostrar/ocultar estadísticas"
+echo "   D - Mostrar/ocultar debug"
 echo "   P - Pausar/reanudar"
-echo "   TAB - Menú completo"
-echo "   1-4 - Cambiar temas"
+echo "   H - Mostrar/ocultar ayuda"
+echo "   F - Pantalla completa"
+echo "   R - Reiniciar visualización"
 echo "   ESC - Salir"
 echo ""
-echo "📋 Siguiente paso: Abrir SuperCollider y cargar 'sc_auto_visualizer.scd'"
-echo "🧪 Para probar comunicación: cargar 'test_communication.scd'"
+echo "📋 Siguiente paso: Abrir SuperCollider y ejecutar:"
+echo "   \"setup_visualizer.scd\".load;"
+echo ""
+echo "🧪 Para probar comunicación rápida:"
+echo "   \"test_conexion.scd\".load;"
+echo ""
+echo "📚 Para ver ejemplos completos:"
+echo "   \"ejemplos_live_coding.scd\".load;"
+echo ""
+echo "📖 Documentación completa: docs/GUIA_LIVE_CODING.md"
 echo ""
 
 # Ejecutar visualizador
 ./target/release/sc_score_visualizer
-echo "Para verificar la integración, ejecuta: python3 verify_integration.py"
-echo
-echo "Presiona Ctrl+C para detener"
-echo "=" * 60
-
-# Ejecutar el visualizador
-exec "$BINARY"
