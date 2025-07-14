@@ -72,3 +72,25 @@ cache/
 exports/
 screenshots/
 visualizations/
+
+ # backups comunes de SuperCollider
+*.scd~
+*.scx
+
+# archivos de GitHub Copilot Agents o herramientas automáticas
+copilot_logs/
+agent_outputs/
+*.copilot.*
+
+#archivos de documentación intermedia si son generados automáticamente
+*.aux
+*.out
+*.toc
+*.pdf
+docs/_build/
+
+# Archivos y carpetas de pruebas, demos o scripts generativos
+tests/
+examples/
+scripts/
+
