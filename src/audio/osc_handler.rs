@@ -5,8 +5,10 @@ use anyhow::Context;
 use nannou_osc as osc;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use super::super::musical_events::{MusicalEvent, VisualParams};
-use super::super::utils::VisualizerError;
+// TODO: Fix type mismatch between MusicalEvent enum and Note struct
+// use crate::model::Note;
+// use crate::musical_events::VisualParams;
+// use crate::utils::VisualizerError;
 use log::{info, warn, error, debug};
 
 /// Configuración del receptor OSC
@@ -21,7 +23,7 @@ impl OscHandler {
     }
 
     /// Inicia el receptor OSC en un hilo separado
-    pub fn start_receiver(&self, events: Arc<Mutex<Vec<MusicalEvent>>>) -> anyhow::Result<()> {
+    pub fn start_receiver(&self, events: Arc<Mutex<Vec<Note>>>) -> anyhow::Result<()> {
         let port = self.port;
         info!("🎵 Iniciando receptor OSC en puerto {}...", port);
         
@@ -36,7 +38,7 @@ impl OscHandler {
     }
 
     /// Bucle principal del receptor OSC
-    fn run_receiver_loop(port: u16, events: Arc<Mutex<Vec<MusicalEvent>>>) -> anyhow::Result<()> {
+    fn run_receiver_loop(port: u16, events: Arc<Mutex<Vec<Note>>>) -> anyhow::Result<()> {
         let osc_receiver = osc::receiver(port)
             .with_context(|| format!("No se pudo crear receptor OSC en puerto {}", port))?;
         
@@ -62,7 +64,7 @@ impl OscHandler {
     }
 
     /// Procesa un mensaje OSC individual
-    fn process_osc_message(msg: osc::Message, events: &Arc<Mutex<Vec<MusicalEvent>>>) -> anyhow::Result<()> {
+    fn process_osc_message(msg: osc::Message, events: &Arc<Mutex<Vec<Note>>>) -> anyhow::Result<()> {
         let args = msg.args.clone();
         debug!("OSC Message: {} {:?}", msg.addr, args);
 
