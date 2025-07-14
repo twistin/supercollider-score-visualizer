@@ -95,3 +95,32 @@ examples/
 scripts/
 
 target/
+
+# Archivos temporales y de prueba
+*.tmp
+*.bak
+*.backup
+*_temp.*
+*_old.*
+demo_*
+test_*.py
+test_*.sh
+
+# Directorios temporales
+ELIMINADOS*/
+temp*/
+captures/
+
+# Entornos virtuales
+venv/
+env/
+.env
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Cachés de Python
+__pycache__/
+*.pyc
+.pytest_cache/
