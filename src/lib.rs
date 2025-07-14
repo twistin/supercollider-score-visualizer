@@ -10,6 +10,10 @@ pub mod osc_server;
 pub mod midi;
 pub mod gui;
 
+// Test module for /analyzer functionality
+#[cfg(test)]
+pub mod analyzer_test;
+
 // Re-exportar tipos importantes para facilitar el uso
 pub use model::{Model, Note, ScrollMode, DisplayMode, OscStats};
 pub use config::AppConfig;
