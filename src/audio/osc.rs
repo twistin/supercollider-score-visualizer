@@ -1,6 +1,6 @@
 // src/audio/osc.rs - Gestión de mensajes OSC
 
-use crate::core::model::Model;
+use crate::model::Model;
 use nannou::prelude::*;
 use nannou_osc as osc;
 
