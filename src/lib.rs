@@ -9,6 +9,9 @@ pub mod config;
 pub mod osc_server;
 pub mod midi;
 pub mod gui;
+pub mod utils;
+pub mod musical_events;
+pub mod core;
 
 // Re-exportar tipos importantes para facilitar el uso
 pub use model::{Model, Note, ScrollMode, DisplayMode, OscStats};

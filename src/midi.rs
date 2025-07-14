@@ -96,7 +96,7 @@ impl MidiServer {
         
         if in_ports.is_empty() {
             println!("⚠️  No se encontraron dispositivos MIDI");
-            let (sender, receiver) = mpsc::channel();
+            let (_sender, receiver) = mpsc::channel();
             return Ok(Self {
                 _connection: None,
                 message_receiver: receiver,

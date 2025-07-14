@@ -3,7 +3,7 @@
 // =============================================================================
 // Adaptador para recibir mensajes OSC multi-canal como IanniX
 
-use rosc::{OscMessage, OscType};
+use nannou_osc::rosc::{OscMessage, OscType};
 use std::collections::HashMap;
 use std::time::Instant;
 

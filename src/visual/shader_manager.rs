@@ -1091,7 +1091,7 @@ impl ShaderManager {
     }
     
     /// **Renderiza forma avanzada estilo Xenakis**
-    fn render_xenakis_advanced_shape(&self, drawing: nannou::draw::Draw, note: &VisualNote, size: f32, color: Rgba, quality: f32) {
+    fn render_xenakis_advanced_shape(&self, drawing: nannou::draw::Draw, _note: &VisualNote, size: f32, color: Rgba, quality: f32) {
         let complexity = self.config.artistic_effects.xenakis_complexity * quality;
         
         // Crear constelación de puntos estocásticos
@@ -1272,7 +1272,7 @@ impl ShaderManager {
     
     /// **Renderiza forma híbrida (combina estilos)**
     fn render_hybrid_shape(&self, drawing: nannou::draw::Draw, note: &VisualNote, size: f32, color: Rgba, quality: f32) {
-        let mut drawing_clone = drawing.clone();
+        let drawing_clone = drawing.clone();
         let time_factor = self.current_time * 0.3;
         
         // Alternar entre estilos basado en tiempo y frecuencia

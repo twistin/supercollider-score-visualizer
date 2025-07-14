@@ -1,13 +1,13 @@
 // 🎵 Manejo de mensajes OSC
 // Recibe y procesa mensajes OSC desde SuperCollider
 
-use anyhow::{Context, Result};
+use anyhow::Context;
 use nannou_osc as osc;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use crate::musical_events::{MusicalEvent, VisualParams};
-use crate::utils::VisualizerError;
-use tracing::{info, warn, error, debug};
+use super::super::musical_events::{MusicalEvent, VisualParams};
+use super::super::utils::VisualizerError;
+use log::{info, warn, error, debug};
 
 /// Configuración del receptor OSC
 pub struct OscHandler {
@@ -63,7 +63,7 @@ impl OscHandler {
 
     /// Procesa un mensaje OSC individual
     fn process_osc_message(msg: osc::Message, events: &Arc<Mutex<Vec<MusicalEvent>>>) -> anyhow::Result<()> {
-        let args = msg.args.clone().unwrap_or_default();
+        let args = msg.args.clone();
         debug!("OSC Message: {} {:?}", msg.addr, args);
 
         if (msg.addr == "/event" || msg.addr == "/musical_event") && args.len() >= 4 {

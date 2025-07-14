@@ -1,6 +1,6 @@
 // src/audio/osc.rs - Gestión de mensajes OSC
 
-use crate::core::model::Model;
+use crate::model::Model;
 use nannou::prelude::*;
 use nannou_osc as osc;
 
@@ -8,7 +8,7 @@ use nannou_osc as osc;
 pub fn process_osc_messages(model: &mut Model, app: &App) {
     // Recopilar todos los mensajes para evitar problemas de borrowing
     let mut messages = Vec::new();
-    for (packet, _addr) in model.osc_receiver.try_iter() {
+    for (packet, _addr) in model.osc_server.receiver.try_iter() {
         for msg in packet.into_msgs() {
             messages.push(msg);
         }

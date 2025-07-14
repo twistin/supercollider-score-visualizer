@@ -627,11 +627,11 @@ impl Model {
     }
     
     /// Método conveniente para crear nota con mapeo profesional
-    pub fn add_pro_visual_note(&mut self, freq: f32, amp: f32, dur: f32, instrument: &str, event_kind: EventKind, current_time: f32) {
+    pub fn add_pro_visual_note(&mut self, freq: f32, amp: f32, dur: f32, instrument: &str, event_kind: EventKind, _current_time: f32) {
         // Obtener propiedades usando mapeo profesional
         let opacity = self.get_pro_opacity(amp);
         let color = self.get_pro_color(freq, amp);
-        let shape = self.get_pro_shape(&event_kind, freq, amp, dur);
+        let _shape = self.get_pro_shape(&event_kind, freq, amp, dur);
         
         // Crear nota visual usando el sistema existente pero con propiedades profesionales
         let mut visual_note = self.audio_visual_mapper.map_audio_to_visual(
