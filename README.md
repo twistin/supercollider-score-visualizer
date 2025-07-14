@@ -49,16 +49,16 @@ El visualizador se iniciará y comenzará a escuchar mensajes OSC en `127.0.0.1:
 
 ### Controles de Teclado
 
-| Tecla | Función |
-|-------|---------|
-| `Espacio` | Pausar/reanudar visualización |
-| `R` | Reiniciar visualización |
-| `D` | Toggle información de debug |
-| `G` | Toggle grilla |
-| `H` | Mostrar/ocultar ayuda |
-| `P` | **Captura manual** (guarda eventos actuales) |
-| `F` | Toggle pantalla completa |
-| `Esc` | Salir |
+| Tecla     | Función                                      |
+| --------- | -------------------------------------------- |
+| `Espacio` | Pausar/reanudar visualización                |
+| `R`       | Reiniciar visualización                      |
+| `D`       | Toggle información de debug                  |
+| `G`       | Toggle grilla                                |
+| `H`       | Mostrar/ocultar ayuda                        |
+| `P`       | **Captura manual** (guarda eventos actuales) |
+| `F`       | Toggle pantalla completa                     |
+| `Esc`     | Salir                                        |
 
 ### Captura de Eventos
 
@@ -156,13 +156,13 @@ src/
 
 ### Mensajes Soportados
 
-| Dirección | Parámetros | Descripción |
-|-----------|------------|-------------|
-| `/note` | `freq, amp, dur` | Evento de nota musical |
-| `/drone` | `freq, amp, dur` | Sonido continuo/drone |
-| `/cluster` | `freq, amp, dur, density` | Cluster de eventos |
-| `/beat` | `time` | Marcador de tiempo |
-| `/stop` | - | Detener todos los eventos |
+| Dirección  | Parámetros                | Descripción               |
+| ---------- | ------------------------- | ------------------------- |
+| `/note`    | `freq, amp, dur`          | Evento de nota musical    |
+| `/drone`   | `freq, amp, dur`          | Sonido continuo/drone     |
+| `/cluster` | `freq, amp, dur, density` | Cluster de eventos        |
+| `/beat`    | `time`                    | Marcador de tiempo        |
+| `/stop`    | -                         | Detener todos los eventos |
 
 ### Ejemplo de Uso con SuperCollider
 
@@ -294,6 +294,7 @@ El sistema de captura permite guardar eventos visuales para análisis posterior:
 ## 📝 Changelog
 
 ### v2.0.0 (Actual)
+
 - ✨ Sistema de captura de eventos en JSON y PNG
 - 🎨 Mejoras visuales y nuevos estilos
 - ⚡ Optimizaciones de rendimiento
@@ -301,6 +302,7 @@ El sistema de captura permite guardar eventos visuales para análisis posterior:
 - 📡 Protocolo OSC más robusto
 
 ### v1.x
+
 - Implementación inicial
 - Soporte básico OSC
 - Visualización fundamental
@@ -318,6 +320,7 @@ Este proyecto está licenciado bajo la Licencia MIT. Ver [LICENSE](LICENSE) para
 ## 📞 Soporte
 
 Para reportar bugs o solicitar funcionalidades:
+
 - 🐛 [Issues en GitHub](https://github.com/twistin/supercollider-score-visualizer/issues)
 - 💬 [Discusiones](https://github.com/twistin/supercollider-score-visualizer/discussions)
 
