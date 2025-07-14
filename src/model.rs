@@ -321,6 +321,58 @@ impl Model {
         self.drone_events.push(drone_event);
     }
 
+    /// Añade un evento de analizador desde SuperCollider con todos los parámetros
+    pub fn add_analyzer_event(
+        &mut self, 
+        timestamp: f32, 
+        pitch: f32, 
+        amplitude: f32, 
+        onset: f32, 
+        duration: f32, 
+        timbre_features: f32, 
+        win: Rect
+    ) {
+        // Crear nota visual con datos de análisis
+        let visual_note = self.add_visual_note(pitch, amplitude, duration, "analyzer", win);
+        
+        // Crear evento musical para compatibilidad con sistema legacy
+        let note = Note {
+            event_type: "analyzer".to_string(),
+            instrument: "analyzer".to_string(),
+            time_alive: 0.0,
+            duration,
+            position: pt2(
+                map_range(pitch.log2().clamp(5.0, 11.0), 5.0, 11.0, win.left(), win.right()),
+                map_range(amplitude, 0.0, 1.0, win.bottom(), win.top())
+            ),
+            size: amplitude * 20.0 + 5.0,
+            color: rgb(
+                (timbre_features * 255.0) as u8,
+                ((1.0 - timbre_features) * 255.0) as u8,
+                ((amplitude * 255.0) as u8)
+            ),
+        };
+        
+        // Añadir a eventos legacy
+        self.notes.push(note);
+        
+        // Crear evento visual profesional con datos de análisis
+        let event_kind = if timbre_features > 0.7 {
+            EventKind::Transient
+        } else if timbre_features > 0.4 {
+            EventKind::Chord
+        } else {
+            EventKind::Note
+        };
+        
+        self.add_pro_visual_note(pitch, amplitude, duration, "analyzer", event_kind, timestamp);
+        
+        if self.config.logging.show_osc_messages {
+            println!("✨ Evento de análisis agregado: pitch={:.1}Hz amp={:.2} dur={:.2}s timbre={:.2}", 
+                   pitch, amplitude, duration, timbre_features);
+        }
+    }
+
     /// Actualiza los datos del cluster
     pub fn update_cluster_data(&mut self, freq: f32, amp: f32, level: f32) {
         self.cluster_data.frequency = freq;

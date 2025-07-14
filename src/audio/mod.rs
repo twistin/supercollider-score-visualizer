@@ -1,10 +1,6 @@
 // src/audio/mod.rs - Audio processing module
 
 pub mod osc;
-pub mod analyzer;
-pub mod buffer;
-pub mod iannix_osc;
-pub mod osc_handler;
 
 // Re-export main functions for compatibility
 pub use osc::process_osc_messages;
