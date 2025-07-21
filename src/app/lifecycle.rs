@@ -2,264 +2,196 @@
 // Maneja la inicialización, actualización y renderizado
 
 use nannou::prelude::*;
-use crate::app::AppState;
-use crate::audio::OscHandler;
+use crate::app::state::AppState; // Ruta corregida a AppState
 use crate::visual::{OptimizedRenderer, ShaderManager, render_frame};
 use crate::config::AppConfig;
-use crate::utils::{VisualizerError, VisualizerResult};
-use tracing::{info, warn, error, debug};
+use crate::errors::{VisualizerError, VisualizerResult, init_error, config_error, window_error, sync_error}; // Importar tipos de error y macros
+use crate::model::Model; // Usar el Model principal de model.rs
+use crate::{log_system, log_visual, log_performance, log_osc}; // Importar macros de logging
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::RwLock; // Mantener tokio para ShaderManager asíncrono
 
-
-
-
-/// Modelo principal de la aplicación (compatible con Nannou)
-pub struct Model {
-    pub state: AppState,
-    pub renderer: OptimizedRenderer,
-    pub enable_optimization: bool,
-    pub config: AppConfig,
-    pub shader_manager: Arc<RwLock<Option<ShaderManager>>>,
-}
-
-impl Model {
-    /// Crea un nuevo modelo con configuración
-    pub fn new_with_config(config: AppConfig) -> Self {
-        Self {
-            state: AppState::new_with_config(config.clone()),
-            renderer: OptimizedRenderer::new(),
-            enable_optimization: config.performance.batching_enabled,
-            config,
-            shader_manager: Arc::new(RwLock::new(None)),
-        }
-    }
-    
-    /// Crea un nuevo modelo con configuración por defecto
-    pub fn new() -> Self {
-        Self::new_with_config(AppConfig::default())
-    }
-    
-    /// Inicializa el gestor de shaders de forma asíncrona
-    pub async fn init_shader_manager(&self) -> VisualizerResult<()> {
-        info!("🎨 Inicializando gestor de shaders con hot-reload...");
-        
-        let shaders_dir = std::path::Path::new("src/visual/shaders");
-        if !shaders_dir.exists() {
-            warn!("⚠️ Directorio de shaders no existe, creándolo: {:?}", shaders_dir);
-            std::fs::create_dir_all(shaders_dir)
-                .map_err(|e| VisualizerError::config(format!("Error creando directorio de shaders: {}", e)))?;
-        }
-        
-        match ShaderManager::new(shaders_dir).await {
-            Ok(manager) => {
-                let mut shader_manager = self.shader_manager.write().await;
-                *shader_manager = Some(manager);
-                info!("✅ Gestor de shaders inicializado correctamente");
-                Ok(())
-            }
-            Err(e) => {
-                error!("❌ Error inicializando gestor de shaders: {}", e);
-                Err(VisualizerError::config(format!("Error inicializando gestor de shaders: {}", e)))
-            }
-        }
-    }
-    
-    /// Obtiene el gestor de shaders si está disponible
-    pub async fn get_shader_manager(&self) -> Option<Arc<RwLock<ShaderManager>>> {
-        let manager_guard = self.shader_manager.read().await;
-        manager_guard.as_ref().map(|manager| Arc::new(RwLock::new(manager.clone())))
-    }
-}
-
-impl Default for Model {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// La definición de la estructura `Model` se ha eliminado de aquí, ya que está definida en `crate::model`.
 
 /// Inicializa la aplicación con configuración avanzada
-pub fn initialize_app(app: &App, config: AppConfig) -> anyhow::Result<Model> {
-    info!("🚀 Inicializando aplicación con configuración avanzada...");
+pub async fn initialize_app(app: &App, config: AppConfig) -> anyhow::Result<Model> { // Hecho asíncrono
+    log_system!(Info, "🚀 Inicializando aplicación con configuración avanzada...");
     
     // Configurar ventana usando parámetros de configuración
-    info!("🖼️ Configurando ventana {}x{}", config.visual.window_width, config.visual.window_height);
+    log_system!(Info, "🖼️ Configurando ventana {}x{}", config.window.width, config.window.height); // Usar config.window
     let mut window_builder = app.new_window()
-        .size(config.visual.window_width, config.visual.window_height)
-        .title(&config.visual.window_title)
+        .size(config.window.width, config.window.height)
+        .title(&config.window.title)
         .view(render_frame)
         .key_pressed(handle_key_press);
     
     // Aplicar configuración de pantalla completa si está habilitada
-    if config.visual.fullscreen {
-        info!("🖥️ Configurando modo pantalla completa");
+    if config.visual.fullscreen { // Usar config.visual
+        log_system!(Info, "🖥️ Configurando modo pantalla completa");
         window_builder = window_builder.fullscreen();
     }
     
-    // Configurar vsync
-    if !config.visual.vsync {
-        info!("🔄 VSync deshabilitado");
-        // Nota: Nannou no expone control directo de VSync, pero se puede configurar en el futuro
+    // Configurar vsync (Nannou no expone control directo, pero se mantiene el log)
+    if !config.window.vsync { // Usar config.window
+        log_system!(Info, "🔄 VSync deshabilitado (configuración)");
     }
     
     window_builder.build()
-        .map_err(|e| VisualizerError::window(format!("Error creando ventana: {}", e)))?;
+        .map_err(|e| window_error!(format!("Error creando ventana: {}", e)))?; // Usar macro window_error
 
-    let model = Model::new_with_config(config.clone());
+    // Inicializar el Model principal de model.rs
+    // El OscServer es ahora parte del Model, así que lo creamos primero.
+    let osc_server = crate::osc_server::OscServer::new(config.osc.clone())
+        .map_err(|e| init_error!("OSC Server", format!("Error inicializando servidor OSC: {}", e)))?;
     
-    // Configurar sincronización temporal según configuración
-    if !config.performance.time_sync_enabled {
-        model.renderer.toggle_time_sync();
-        info!("⏱️ Sincronización temporal deshabilitada por configuración");
-    }
+    let mut model = Model::new_with_config(osc_server, config.clone()); // Pasar config al Model
     
-    // Configurar renderer según configuración
-    if config.visual.enable_debug_info {
-        model.renderer.toggle_debug_info();
-        info!("🔍 Información de debug habilitada por configuración");
-    }
+    // Inicializar servidor MIDI dentro del Model
+    model.init_midi();
+    log_system!(Info, "⏱️ Sincronización temporal configurada desde: {:.2}s", app.time);
     
-    // Configurar tiempo de sincronización
-    model.renderer.set_sync_start_time(app.time);
-    info!("⏱️ Sincronización temporal configurada desde: {:.2}s", app.time);
-    
-    // Inicializar el receptor OSC con configuración
-    info!("🔊 Inicializando receptor OSC en {}:{}", config.audio.osc_host, config.audio.osc_port);
-    let osc_handler = OscHandler::new(config.audio.osc_port);
-    let events_handle = model.state.get_events_handle();
-    osc_handler.start_receiver(events_handle)?;
-
     // Inicializar gestor de shaders con hot-reload si está habilitado
-    if config.visual.shader_hot_reload {
-        info!("🔥 Configurando hot-reload de shaders...");
-        let shader_manager_arc = Arc::clone(&model.shader_manager);
+    if model.config.visual.shader_hot_reload { // Usar la config del modelo
+        log_system!(Info, "🔥 Configurando hot-reload de shaders...");
         
-        tokio::spawn(async move {
-            let mut sm_guard = shader_manager_arc.write().await;
-            *sm_guard = Some(ShaderManager::new("src/visual/shaders").await
-                .expect("Error inicializando ShaderManager"));
-            info!("✅ Gestor de shaders inicializado y hot-reload activo.");
-        });
+        // Llamar al método asíncrono de inicialización en el propio Model
+        model.init_shader_manager().await
+            .map_err(|e| init_error!("Shader Manager", format!("Error inicializando gestor de shaders: {}", e)))?;
+        
+        log_system!(Info, "✅ Gestor de shaders inicializado y hot-reload activo.");
     } else {
-        info!("⚠️ Hot-reload de shaders deshabilitado por configuración");
+        log_system!(Warning, "⚠️ Hot-reload de shaders deshabilitado por configuración");
     }
 
-    info!("✅ Aplicación inicializada correctamente con configuración avanzada");
-    info!("📊 Configuración activa: batching={}, time_sync={}, max_particles={}", 
-          config.performance.batching_enabled,
-          config.performance.time_sync_enabled,
-          config.performance.max_particles);
+    log_system!(Info, "✅ Aplicación inicializada correctamente con configuración avanzada");
+    log_system!(Info, "📊 Configuración activa: max_notes={}, max_drones={}, max_cluster_particles={}", // Usar campos de configuración relevantes
+          config.performance.max_notes,
+          config.performance.max_drones,
+          config.performance.max_cluster_particles);
     
     Ok(model)
 }
 
 /// Actualiza el estado de la aplicación
-pub fn update_app(app: &App, model: &mut Model, _update: Update) -> anyhow::Result<()> {
-    // Actualizar tiempo y eventos
-    model.state.update_time(app.time);
-    model.state.update_events()?;
-    
+pub fn update_app(app: &App, model: &mut Model, update: Update) -> anyhow::Result<()> {
+    // Actualizar tiempo y eventos usando los métodos del Model principal
+    model.update_time(app.time); // Esto actualiza model.elapsed_time
+    model.update_events(update.since_last.as_secs_f32()); // Esto actualiza notas/drones legacy y limpia
+    model.update_visual_notes(update.since_last.as_secs_f32(), app.window_rect()); // Actualizar notas visuales profesionales
+
     // Log periódico del estado (cada 5 segundos)
     if (app.time as u64) % 5 == 0 && app.time.fract() < 0.01 {
-        debug!("⏱️ Estado: tiempo={:.2}s, eventos_activos={:?}", 
-               app.time, model.state.get_active_events_count());
+        log_system!(Debug, "⏱️ Estado: tiempo={:.2}s, eventos_activos_legacy={:?}", 
+               app.time, model.get_active_events_count()); // Usar el método del modelo
     }
     
     Ok(())
 }
 
-
-
 /// Maneja las teclas presionadas
 pub fn handle_key_press(app: &App, model: &mut Model, key: Key) {
     match key {
         Key::S => {
-            info!("📸 Exportando visualización...");
+            log_system!(Info, "📸 Exportando visualización...");
             match export_visualization(app) {
                 Ok(path) => {
-                    info!("✅ Visualización guardada como: {:?}", path);
+                    log_system!(Info, "✅ Visualización guardada como: {:?}", path);
                 }
                 Err(e) => {
-                    error!("❌ Error exportando visualización: {}", e);
+                    log_system!(Error, "❌ Error exportando visualización: {}", e);
                 }
             }
         },
         Key::D => {
-            info!("🔍 Alternando información de debug...");
-            model.renderer.toggle_debug_info();
+            log_system!(Info, "🔍 Alternando información de debug...");
+            model.display_config.show_debug = !model.display_config.show_debug; // Actualizar directamente la config de display
+            log_system!(Info, "🐛 Debug info: {}", if model.display_config.show_debug { "ON" } else { "OFF" });
         },
         Key::O => {
-            info!("⚡ Alternando optimización de batching...");
-            model.enable_optimization = !model.enable_optimization;
-            info!("🎯 Optimización: {}", if model.enable_optimization { "ON" } else { "OFF" });
+            log_system!(Info, "⚡ Alternando optimización de batching...");
+            model.config.performance.batching_enabled = !model.config.performance.batching_enabled; // Actualizar config directamente
+            log_system!(Info, "🎯 Optimización: {}", if model.config.performance.batching_enabled { "ON" } else { "OFF" });
         },
         Key::P => {
-            info!("📊 Estadísticas de rendimiento:");
-            let stats = model.renderer.get_stats();
-            let batch_stats = model.renderer.get_batch_stats();
-            info!("   Frames: {}, Elementos: {}, FPS: {:.1}", 
-                 stats.frames_rendered, batch_stats.total_elements, stats.avg_fps);
-            info!("   Sincronización: Activos: {}/{}", 
-                 stats.sync_active_events, stats.sync_total_events);
+            log_system!(Info, "📊 Estadísticas de rendimiento:");
+            // Obtener estadísticas de los componentes del Modelo
+            let osc_stats = model.osc_server.get_stats();
+            log_performance!(Info, "📡 OSC: Total={}, Procesados={}, Errores={}, MPS={:.1}, Conectado={}",
+                             osc_stats.total_received, osc_stats.total_processed,
+                             osc_stats.total_errors, osc_stats.messages_per_second,
+                             osc_stats.is_connected);
+            log_performance!(Info, "🎵 Eventos Legacy: {} | Drones: {} | Notas Visuales: {}",
+                             model.notes.len(), model.drone_events.len(), model.visual_notes.len());
         },
         Key::T => {
-            info!("⏱️ Alternando sincronización temporal...");
-            model.renderer.toggle_time_sync();
+            log_system!(Info, "⏱️ Alternando sincronización temporal...");
+            // Esta funcionalidad necesita ser implementada en model.rs si aún se desea.
+            log_system!(Warning, "⚠️ Sincronización temporal no implementada en el modelo actual.");
         },
         Key::R => {
-            info!("🔄 Reiniciando tiempo de sincronización...");
-            model.renderer.set_sync_start_time(app.time);
+            log_system!(Info, "🔄 Reiniciando tiempo y eventos...");
+            model.elapsed_time = 0.0; // Resetear tiempo transcurrido
+            model.osc_server.reset_stats(); // Resetear estadísticas OSC
+            model.clear_events(); // Limpiar todos los eventos (legacy y visuales)
+            log_system!(Info, "✅ Tiempo y eventos reiniciados.");
         },
         Key::C => {
-            info!("💾 Guardando configuración actual...");
-            let config_path = "config/current.toml";
+            log_system!(Info, "💾 Guardando configuración actual...");
+            let config_path = "config.toml"; // Usar el config.toml estándar
             match model.config.save_to_file(config_path) {
                 Ok(_) => {
-                    info!("✅ Configuración guardada en: {}", config_path);
+                    log_system!(Info, "✅ Configuración guardada en: {}", config_path);
                 }
                 Err(e) => {
-                    error!("❌ Error guardando configuración: {}", e);
+                    log_system!(Error, "❌ Error guardando configuración: {}", e);
                 }
             }
         },
         Key::H => {
-            info!("🔥 Recompilando shaders...");
-            let shader_manager = Arc::clone(&model.shader_manager);
-            tokio::spawn(async move {
-                if let Some(manager) = shader_manager.read().await.as_ref() {
-                    match manager.force_recompile_all().await {
-                        Ok(_) => {
-                            info!("✅ Shaders recompilados exitosamente");
+            log_system!(Info, "🔥 Recompilando shaders...");
+            let shader_manager_arc = Arc::clone(&model.shader_manager);
+            // Usar std::thread::spawn y block_on para llamadas asíncronas en un contexto síncrono
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    if let Some(manager) = shader_manager_arc.read().await.as_ref() {
+                        match manager.force_recompile_all().await {
+                            Ok(_) => {
+                                log_system!(Info, "✅ Shaders recompilados exitosamente");
+                            }
+                            Err(e) => {
+                                log_system!(Error, "❌ Error recompilando shaders: {}", e);
+                            }
                         }
-                        Err(e) => {
-                            error!("❌ Error recompilando shaders: {}", e);
-                        }
+                    } else {
+                        log_system!(Warning, "⚠️ Gestor de shaders no está disponible");
                     }
-                } else {
-                    warn!("⚠️ Gestor de shaders no está disponible");
-                }
+                });
             });
         },
         Key::L => {
-            info!("📋 Listando shaders disponibles...");
-            let shader_manager = Arc::clone(&model.shader_manager);
-            tokio::spawn(async move {
-                if let Some(manager) = shader_manager.read().await.as_ref() {
-                    let shaders = manager.list_shaders().await;
-                    let (total, success, errors) = manager.get_compilation_stats().await;
-                    
-                    info!("📊 Estadísticas de shaders: {} total, {} exitosos, {} con errores", total, success, errors);
-                    for shader in shaders {
-                        let status = match shader.compile_status {
-                            crate::visual::CompileStatus::Success => "✅",
-                            crate::visual::CompileStatus::Error(_) => "❌",
-                            crate::visual::CompileStatus::Pending => "⏳",
-                        };
-                        info!("   {} {} ({})", status, shader.name, shader.shader_type.to_string());
+            log_system!(Info, "📋 Listando shaders disponibles...");
+            let shader_manager_arc = Arc::clone(&model.shader_manager);
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    if let Some(manager) = shader_manager_arc.read().await.as_ref() {
+                        let shaders = manager.list_shaders().await;
+                        let (total, success, errors) = manager.get_compilation_stats().await;
+                        
+                        log_system!(Info, "📊 Estadísticas de shaders: {} total, {} exitosos, {} con errores", total, success, errors);
+                        for shader in shaders {
+                            let status = match shader.compile_status {
+                                crate::visual::CompileStatus::Success => "✅",
+                                crate::visual::CompileStatus::Error(_) => "❌",
+                                crate::visual::CompileStatus::Pending => "⏳",
+                            };
+                            log_system!(Info, "   {} {} ({})", status, shader.name, shader.shader_type.to_string());
+                        }
+                    } else {
+                        log_system!(Warning, "⚠️ Gestor de shaders no está disponible");
                     }
-                } else {
-                    warn!("⚠️ Gestor de shaders no está disponible");
-                }
+                });
             });
         },
         _ => {}
@@ -268,17 +200,15 @@ pub fn handle_key_press(app: &App, model: &mut Model, key: Key) {
 
 /// Exporta la visualización actual
 fn export_visualization(app: &App) -> VisualizerResult<std::path::PathBuf> {
-    debug!("🔧 Preparando exportación de visualización");
+    log_system!(Debug, "🔧 Preparando exportación de visualización");
     
     let window = app.main_window();
     let path = app.assets_path()
         .unwrap_or_else(|_| std::env::current_dir().unwrap())
         .join(format!("visualizer_export_{}.png", app.time as u32));
     
-    debug!("💾 Capturando frame en: {:?}", path);
+    log_system!(Debug, "💾 Capturando frame en: {:?}", path);
     window.capture_frame(&path);
     
     Ok(path)
 }
-
-

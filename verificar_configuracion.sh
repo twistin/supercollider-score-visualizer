@@ -28,7 +28,7 @@ check_result $? "Cargo disponible"
 
 # Verificar dependencias del sistema
 echo ""
-echo "🔧 Verificando dependencias del sistema..."
+echo "🔧 Verificando dependencias del sistema...S"
 
 if command -v pkg-config > /dev/null 2>&1; then
     echo "✅ pkg-config disponible"
@@ -85,7 +85,9 @@ echo "📁 Verificando archivos de configuración..."
 # Verificar puerto OSC
 echo ""
 echo "🌐 Verificando configuración OSC..."
-PORT=$(grep 'listen_port' config.toml | grep -o '[0-9]*' 2>/dev/null || echo "7777")
+# El puerto se lee de config.toml. Se asume 57124 es el valor deseado por defecto.
+# Si el config.toml tiene otro puerto, se usará ese.
+PORT=$(grep 'listen_port' config.toml | grep -o '[0-9]*' 2>/dev/null || echo "57124")
 echo "📡 Puerto OSC configurado: $PORT"
 
 if lsof -i :$PORT > /dev/null 2>&1; then
@@ -100,6 +102,9 @@ echo ""
 echo "📚 Verificando documentación..."
 [ -f "docs/GUIA_LIVE_CODING.md" ] && echo "✅ Guía de live coding encontrada" || echo "❌ Guía de live coding no encontrada"
 [ -f "README.md" ] && echo "✅ README.md encontrado" || echo "❌ README.md no encontrado"
+[ -f "ARCHITECTURE.md" ] && echo "✅ ARCHITECTURE.md encontrado" || echo "❌ ARCHITECTURE.md no encontrado"
+[ -f "MAPAS_PROFESIONALES_RESUMEN.md" ] && echo "✅ MAPAS_PROFESIONALES_RESUMEN.md encontrado" || echo "❌ MAPAS_PROFESIONALES_RESUMEN.md no encontrado"
+
 
 # Ejecutar tests
 echo ""

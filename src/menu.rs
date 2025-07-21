@@ -179,12 +179,7 @@ fn draw_submenu(draw: &Draw, model: &Model, window_rect: Rect, menu_type: &MenuT
     let submenu_height = menu_items.len() as f32 * SUBMENU_ITEM_HEIGHT + 10.0;
     
     // Posición del submenú
-    let submenu_x = match menu_type {
-        MenuType::File => window_rect.left() + 280.0,
-        MenuType::Edit => window_rect.left() + 330.0,
-        MenuType::Display => window_rect.left() + 380.0,
-        MenuType::View => window_rect.left() + 460.0,
-    };
+    let submenu_x = window_rect.left() + submenu_x_offset(menu_type);
     
     let submenu_y = window_rect.top() - MENU_HEIGHT - submenu_height / 2.0;
     
@@ -286,6 +281,9 @@ fn get_menu_items(menu_type: &MenuType) -> Vec<&'static str> {
             "Show Grid",
             "Show Axis Labels",
             "---",
+            "Modo Partitura: Desplazamiento",
+            "Modo Partitura: Lienzo Fijo",
+            "---",
             "Snap to X-Grid",
             "Snap to Y-Grid",
             "---",
@@ -336,6 +334,8 @@ fn draw_menu_item_indicator(draw: &Draw, item: &str, model: &Model, x: f32, y: f
         "Show Statistics" if model.ui_state.show_stats => "✓",
         "Show Trails" if model.ui_state.show_trails => "✓",
         "Musical Mode" if model.config.visual.grid.musical_divisions => "✓",
+        "Modo Partitura: Desplazamiento" if model.config.visual.score_mode == crate::config::ScoreMode::LiveScroll => "✓",
+        "Modo Partitura: Lienzo Fijo" if model.config.visual.score_mode == crate::config::ScoreMode::FixedCanvas => "✓",
         "Light Theme" if model.ui_state.theme == ColorTheme::Light => "✓",
         "Dark Theme" if model.ui_state.theme == ColorTheme::Dark => "✓",
         "Blue Theme" if model.ui_state.theme == ColorTheme::Blue => "✓",
@@ -375,7 +375,7 @@ pub fn handle_menu_click(model: &mut Model, click_pos: Vec2, window_rect: Rect) 
     
     let menu_rect = get_menu_rect(window_rect);
     if !menu_rect.contains(click_pos) {
-        model.ui_state.menu_state.active_menu = None;
+        model.ui_state.menu_state.active_menu = None; // Desactivar menú si se hace clic fuera
         return false;
     }
     
@@ -397,9 +397,9 @@ pub fn handle_menu_click(model: &mut Model, click_pos: Vec2, window_rect: Rect) 
         
         if item_rect.contains(click_pos) {
             if model.ui_state.menu_state.active_menu.as_ref() == Some(menu_type) {
-                model.ui_state.menu_state.active_menu = None;
+                model.ui_state.menu_state.active_menu = None; // Desactivar si ya está activo
             } else {
-                model.ui_state.menu_state.active_menu = Some(menu_type.clone());
+                model.ui_state.menu_state.active_menu = Some(menu_type.clone()); // Activar
             }
             return true;
         }
@@ -409,14 +409,9 @@ pub fn handle_menu_click(model: &mut Model, click_pos: Vec2, window_rect: Rect) 
 }
 
 pub fn handle_submenu_click(model: &mut Model, click_pos: Vec2, window_rect: Rect) -> bool {
-    if let Some(active_menu) = &model.ui_state.menu_state.active_menu {
+    if let Some(active_menu) = &model.ui_state.menu_state.active_menu.clone() { // Clonar para evitar problemas de borrowing
         let menu_items = get_menu_items(active_menu);
-        let submenu_x = match active_menu {
-            MenuType::File => window_rect.left() + 280.0,
-            MenuType::Edit => window_rect.left() + 330.0,
-            MenuType::Display => window_rect.left() + 380.0,
-            MenuType::View => window_rect.left() + 460.0,
-        };
+        let submenu_x = window_rect.left() + submenu_x_offset(active_menu);
         
         for (i, item) in menu_items.iter().enumerate() {
             let item_y = window_rect.top() - MENU_HEIGHT - 15.0 - (i as f32 * SUBMENU_ITEM_HEIGHT);
@@ -429,7 +424,7 @@ pub fn handle_submenu_click(model: &mut Model, click_pos: Vec2, window_rect: Rec
             
             if item_rect.contains(click_pos) && !item.starts_with("---") {
                 execute_menu_action(model, item);
-                model.ui_state.menu_state.active_menu = None;
+                model.ui_state.menu_state.active_menu = None; // Desactivar submenú después de la acción
                 return true;
             }
         }
@@ -437,8 +432,25 @@ pub fn handle_submenu_click(model: &mut Model, click_pos: Vec2, window_rect: Rec
     false
 }
 
+fn submenu_x_offset(menu_type: &MenuType) -> f32 {
+    match menu_type {
+        MenuType::File => 280.0,
+        MenuType::Edit => 330.0,
+        MenuType::Display => 380.0,
+        MenuType::View => 460.0,
+    }
+}
+
 fn execute_menu_action(model: &mut Model, action: &str) {
     match action {
+        "Modo Partitura: Desplazamiento" => {
+            model.config.visual.score_mode = crate::config::ScoreMode::LiveScroll;
+            println!("🎼 Modo partitura: Desplazamiento activado");
+        },
+        "Modo Partitura: Lienzo Fijo" => {
+            model.config.visual.score_mode = crate::config::ScoreMode::FixedCanvas;
+            println!("🖼️ Modo partitura: Lienzo fijo activado");
+        },
         // File menu actions
         "New Session" => {
             model.events.clear();
@@ -446,40 +458,52 @@ fn execute_menu_action(model: &mut Model, action: &str) {
             println!("🆕 Nueva sesión creada");
         },
         "Open Session..." => {
-            if let Err(e) = model.load_session("session.toml") {
-                eprintln!("❌ Error cargando sesión: {}", e);
-            }
+            // Implementación placeholder
+            println!("⚠️ Acción 'Open Session...' no implementada aún.");
+            // if let Err(e) = model.load_session("session.toml") {
+            //     eprintln!("❌ Error cargando sesión: {}", e);
+            // }
         },
         "Save Session" => {
-            if let Err(e) = model.save_session("session.toml") {
-                eprintln!("❌ Error guardando sesión: {}", e);
-            } else {
-                println!("💾 Sesión guardada");
-            }
+            // Implementación placeholder
+            println!("⚠️ Acción 'Save Session' no implementada aún.");
+            // if let Err(e) = model.save_session("session.toml") {
+            //     eprintln!("❌ Error guardando sesión: {}", e);
+            // } else {
+            //     println!("💾 Sesión guardada");
+            // }
         },
         "Save As..." => {
-            if let Err(e) = model.save_session("session_backup.toml") {
-                eprintln!("❌ Error guardando sesión: {}", e);
-            } else {
-                println!("💾 Sesión guardada como backup");
-            }
+            // Implementación placeholder
+            println!("⚠️ Acción 'Save As...' no implementada aún.");
+            // if let Err(e) = model.save_session("session_backup.toml") {
+            //     eprintln!("❌ Error guardando sesión: {}", e);
+            // } else {
+            //     println!("💾 Sesión guardada como backup");
+            // }
         },
         "Export Image..." => {
-            if let Err(e) = model.export_image("visualization.png") {
-                eprintln!("❌ Error exportando imagen: {}", e);
-            } else {
-                println!("🖼️ Imagen exportada");
-            }
+            // Implementación placeholder
+            println!("⚠️ Acción 'Export Image...' no implementada aún.");
+            // if let Err(e) = model.export_image("visualization.png") {
+            //     eprintln!("❌ Error exportando imagen: {}", e);
+            // } else {
+            //     println!("🖼️ Imagen exportada");
+            // }
         },
         "Export Video..." => {
-            if let Err(e) = model.export_video("visualization.mp4") {
-                eprintln!("❌ Error exportando video: {}", e);
-            } else {
-                println!("🎥 Video exportado");
-            }
+            // Implementación placeholder
+            println!("⚠️ Acción 'Export Video...' no implementada aún.");
+            // if let Err(e) = model.export_video("visualization.mp4") {
+            //     eprintln!("❌ Error exportando video: {}", e);
+            // } else {
+            //     println!("🎥 Video exportado");
+            // }
         },
         "Preferences..." => {
-            model.show_preferences();
+            // Implementación placeholder
+            println!("⚠️ Acción 'Preferences...' no implementada aún.");
+            // model.show_preferences();
         },
         "Quit" => {
             println!("👋 Cerrando aplicación...");
@@ -487,30 +511,62 @@ fn execute_menu_action(model: &mut Model, action: &str) {
         },
         
         // Edit menu actions
+        "Undo" => println!("⚠️ Acción 'Undo' no implementada aún."),
+        "Redo" => println!("⚠️ Acción 'Redo' no implementada aún."),
         "Clear Events" => {
-            model.events.clear();
+            model.clear_events();
+            model.clear_visual_notes(); // Asegurar que también se limpian las notas visuales
             println!("🗑️ Eventos limpiados");
         },
         "Reset Settings" => {
-            model.reset_settings();
+            // Implementación placeholder
+            println!("⚠️ Acción 'Reset Settings' no implementada aún.");
+            // model.reset_settings();
         },
         "Copy Screenshot" => {
-            if let Err(e) = model.copy_screenshot() {
-                eprintln!("❌ Error copiando captura: {}", e);
-            } else {
-                println!("📋 Captura copiada al portapapeles");
-            }
+            // Implementación placeholder
+            println!("⚠️ Acción 'Copy Screenshot' no implementada aún.");
+            // if let Err(e) = model.copy_screenshot() {
+            //     eprintln!("❌ Error copiando captura: {}", e);
+            // } else {
+            //     println!("📋 Captura copiada al portapapeles");
+            // }
         },
+        "Find..." => println!("⚠️ Acción 'Find...' no implementada aún."),
         
         // Display menu actions
-        "Fullscreen" => model.toggle_ui_element("fullscreen"),
-        "Performance Mode" => model.toggle_ui_element("performance"),
-        "Show Timer" => model.toggle_ui_element("timer"),
-        "Show Grid" => model.toggle_ui_element("grid"),
-        "Show Axis Labels" => model.config.visual.grid.show_labels = !model.config.visual.grid.show_labels,
-        "Snap to X-Grid" => model.toggle_ui_element("snap_x"),
-        "Snap to Y-Grid" => model.toggle_ui_element("snap_y"),
-        "High Resolution" => model.toggle_ui_element("high_res"),
+        "Fullscreen" => {
+            model.toggle_ui_element("fullscreen");
+            println!("📺 Fullscreen: {}", if model.ui_state.fullscreen { "ON" } else { "OFF" });
+        },
+        "Performance Mode" => {
+            model.toggle_ui_element("performance");
+            println!("⚡ Performance Mode: {}", if model.ui_state.performance_mode { "ON" } else { "OFF" });
+        },
+        "Show Timer" => {
+            model.toggle_ui_element("timer");
+            println!("⏱️ Show Timer: {}", if model.ui_state.show_timer { "ON" } else { "OFF" });
+        },
+        "Show Grid" => {
+            model.toggle_ui_element("grid");
+            println!("📐 Show Grid: {}", if model.ui_state.show_grid { "ON" } else { "OFF" });
+        },
+        "Show Axis Labels" => {
+            model.config.visual.grid.show_labels = !model.config.visual.grid.show_labels;
+            println!("🏷️ Show Axis Labels: {}", if model.config.visual.grid.show_labels { "ON" } else { "OFF" });
+        },
+        "Snap to X-Grid" => {
+            model.toggle_ui_element("snap_x");
+            println!("↔️ Snap to X-Grid: {}", if model.ui_state.snap_to_x_grid { "ON" } else { "OFF" });
+        },
+        "Snap to Y-Grid" => {
+            model.toggle_ui_element("snap_y");
+            println!("↕️ Snap to Y-Grid: {}", if model.ui_state.snap_to_y_grid { "ON" } else { "OFF" });
+        },
+        "High Resolution" => {
+            model.toggle_ui_element("high_res");
+            println!("✨ High Resolution: {}", if model.ui_state.high_resolution { "ON" } else { "OFF" });
+        },
         "Grid Resolution +" => {
             model.adjust_grid_resolution(2);
             println!("📏 Resolución de rejilla: {}", model.ui_state.grid_resolution);
@@ -554,10 +610,18 @@ fn execute_menu_action(model: &mut Model, action: &str) {
             println!("📏 Ajustado a ventana");
         },
         "Resize Viewport" => {
-            model.resize_viewport(Vec2::new(1200.0, 800.0));
+            // Implementación placeholder
+            println!("⚠️ Acción 'Resize Viewport' no implementada aún.");
+            // model.resize_viewport(Vec2::new(1200.0, 800.0));
         },
-        "Show Statistics" => model.toggle_ui_element("stats"),
-        "Show Trails" => model.toggle_ui_element("trails"),
+        "Show Statistics" => {
+            model.toggle_ui_element("stats");
+            println!("📊 Show Statistics: {}", if model.ui_state.show_stats { "ON" } else { "OFF" });
+        },
+        "Show Trails" => {
+            model.toggle_ui_element("trails");
+            println!("💫 Show Trails: {}", if model.ui_state.show_trails { "ON" } else { "OFF" });
+        },
         "Musical Mode" => {
             model.config.visual.grid.musical_divisions = true;
             println!("🎵 Modo musical activado");
@@ -568,7 +632,7 @@ fn execute_menu_action(model: &mut Model, action: &str) {
         },
         
         _ => {
-            println!("⚠️ Acción no implementada: {}", action);
+            println!("⚠️ Acción de menú no reconocida o no implementada: {}", action);
         }
     }
 }

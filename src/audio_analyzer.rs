@@ -25,6 +25,8 @@ pub struct AudioAnalysisConfig {
     pub max_events_per_second: usize,
     pub enable_real_audio: bool,  // Nueva: toggle para audio real vs simulación
     pub device_name: Option<String>, // Nueva: nombre del dispositivo específico
+    pub verbose_logging: bool,          // Nuevo: mostrar logs detallados
+    pub max_simulated_events: Option<usize>, // Nuevo: límite opcional de eventos simulados
 }
 
 impl Default for AudioAnalysisConfig {
@@ -41,6 +43,8 @@ impl Default for AudioAnalysisConfig {
             max_events_per_second: 50,
             enable_real_audio: false, // Temporalmente deshabilitado
             device_name: None,
+            verbose_logging: true,
+            max_simulated_events: None,
         }
     }
 }
@@ -122,9 +126,20 @@ impl UniversalAudioAnalyzer {
             let mut frequency_drift: f32 = 440.0;
             let mut intensity_cycle: f32 = 0.0;
             
-            println!("🎵 Simulación de eventos iniciada - generando patrones musicales inteligentes");
+            if _config.verbose_logging {
+                println!("🎵 Simulación de eventos iniciada - generando patrones musicales inteligentes");
+            }
             
             loop {
+                if let Some(max) = _config.max_simulated_events {
+                    if event_counter >= max {
+                        if _config.verbose_logging {
+                            println!("🛑 Límite de eventos simulados alcanzado: {}", max);
+                        }
+                        break;
+                    }
+                }
+
                 let _now = Instant::now();
                 let elapsed = last_event.elapsed();
                 
@@ -149,89 +164,77 @@ impl UniversalAudioAnalyzer {
                         if (intensity_cycle * 3.0).sin() > 0.5 { 0 } else { 3 };
                     
                     let test_event = match event_type_selector {
-                        0 => DetectedEvent {
-                            event_type: DetectedEventType::Onset {
-                                frequency: frequency_drift + (timestamp * 0.2).sin() as f32 * 100.0,
-                                sharpness: 0.6 + (intensity_cycle * 0.4).sin() * 0.3,
-                            },
+                        0 => Self::generate_onset(
+                            frequency_drift + (timestamp * 0.2).sin() as f32 * 100.0,
+                            0.6 + (intensity_cycle * 0.4).sin() * 0.3,
                             timestamp,
-                            duration: 0.8 + (intensity_cycle * 0.1).cos() as f64 * 0.5,
-                            amplitude: 0.5 + (intensity_cycle * 0.2).cos() * 0.4,
-                            confidence: 0.8 + (timestamp * 0.1).cos() as f32 * 0.15,
-                        },
+                            0.5 + (intensity_cycle * 0.2).cos() * 0.4,
+                            0.8 + (timestamp * 0.1).cos() as f32 * 0.15,
+                            0.8 + (intensity_cycle * 0.1).cos() as f64 * 0.5,
+                        ),
                         1 => {
                             let start_f = frequency_drift;
                             let end_f = start_f + (intensity_cycle * 2.0).sin() * 300.0;
-                            DetectedEvent {
-                                event_type: DetectedEventType::PitchTrack {
-                                    start_freq: start_f,
-                                    end_freq: end_f,
-                                    stability: 0.7 + (intensity_cycle * 0.15).sin() * 0.25,
-                                },
+                            Self::generate_pitch_track(
+                                start_f,
+                                end_f,
+                                0.7 + (intensity_cycle * 0.15).sin() * 0.25,
                                 timestamp,
-                                duration: 1.5 + (intensity_cycle * 0.05).sin() as f64 * 0.8,
-                                amplitude: 0.4 + (intensity_cycle * 0.3).sin() * 0.3,
-                                confidence: 0.85 + (timestamp * 0.15).sin() as f32 * 0.1,
-                            }
+                                0.4 + (intensity_cycle * 0.3).sin() * 0.3,
+                                0.85 + (timestamp * 0.15).sin() as f32 * 0.1,
+                                1.5 + (intensity_cycle * 0.05).sin() as f64 * 0.8,
+                            )
                         },
-                        2 => DetectedEvent {
-                            event_type: DetectedEventType::SpectralCluster {
-                                center_freq: frequency_drift + (intensity_cycle * 1.5).cos() * 200.0,
-                                spread: 100.0 + (intensity_cycle * 0.8).sin() * 150.0,
-                                density: 3 + ((intensity_cycle * 0.9).sin() * 3.0) as usize,
-                            },
+                        2 => Self::generate_cluster(
+                            frequency_drift + (intensity_cycle * 1.5).cos() * 200.0,
+                            100.0 + (intensity_cycle * 0.8).sin() * 150.0,
+                            3 + ((intensity_cycle * 0.9).sin() * 3.0) as usize,
                             timestamp,
-                            duration: 1.0 + (intensity_cycle * 0.12).cos() as f64 * 0.6,
-                            amplitude: 0.6 + (intensity_cycle * 0.25).cos() * 0.35,
-                            confidence: 0.75 + (timestamp * 0.08).cos() as f32 * 0.2,
-                        },
-                        3 => DetectedEvent {
-                            event_type: DetectedEventType::NoiseTexture {
-                                freq_center: frequency_drift * 1.5 + (intensity_cycle * 0.7).sin() * 400.0,
-                                bandwidth: 300.0 + (intensity_cycle * 1.2).cos() * 500.0,
-                                roughness: 0.4 + (intensity_cycle * 0.6).sin() * 0.4,
-                            },
+                            0.6 + (intensity_cycle * 0.25).cos() * 0.35,
+                            0.75 + (timestamp * 0.08).cos() as f32 * 0.2,
+                            1.0 + (intensity_cycle * 0.12).cos() as f64 * 0.6,
+                        ),
+                        3 => Self::generate_noise_texture(
+                            frequency_drift * 1.5 + (intensity_cycle * 0.7).sin() * 400.0,
+                            300.0 + (intensity_cycle * 1.2).cos() * 500.0,
+                            0.4 + (intensity_cycle * 0.6).sin() * 0.4,
                             timestamp,
-                            duration: 2.0 + (intensity_cycle * 0.08).sin() as f64 * 1.2,
-                            amplitude: 0.3 + (intensity_cycle * 0.35).sin() * 0.25,
-                            confidence: 0.7 + (timestamp * 0.12).sin() as f32 * 0.2,
-                        },
-                        4 => DetectedEvent { // Evento de alta frecuencia
-                            event_type: DetectedEventType::Onset {
-                                frequency: 1500.0 + (timestamp * 0.5).cos() as f32 * 800.0,
-                                sharpness: 0.9,
-                            },
+                            0.3 + (intensity_cycle * 0.35).sin() * 0.25,
+                            0.7 + (timestamp * 0.12).sin() as f32 * 0.2,
+                            2.0 + (intensity_cycle * 0.08).sin() as f64 * 1.2,
+                        ),
+                        4 => Self::generate_onset(
+                            1500.0 + (timestamp * 0.5).cos() as f32 * 800.0,
+                            0.9,
                             timestamp,
-                            duration: 0.3,
-                            amplitude: 0.8,
-                            confidence: 0.9,
-                        },
-                        5 => DetectedEvent { // Glissando descendente
-                            event_type: DetectedEventType::PitchTrack {
-                                start_freq: 800.0,
-                                end_freq: 200.0,
-                                stability: 0.95,
-                            },
+                            0.8,
+                            0.9,
+                            0.3,
+                        ),
+                        5 => Self::generate_pitch_track(
+                            800.0,
+                            200.0,
+                            0.95,
                             timestamp,
-                            duration: 3.0,
-                            amplitude: 0.65,
-                            confidence: 0.92,
-                        },
-                        _ => DetectedEvent { // Cluster denso
-                            event_type: DetectedEventType::SpectralCluster {
-                                center_freq: 1000.0,
-                                spread: 600.0,
-                                density: 8,
-                            },
+                            0.65,
+                            0.92,
+                            3.0,
+                        ),
+                        _ => Self::generate_cluster(
+                            1000.0,
+                            600.0,
+                            8,
                             timestamp,
-                            duration: 1.8,
-                            amplitude: 0.75,
-                            confidence: 0.88,
-                        },
+                            0.75,
+                            0.88,
+                            1.8,
+                        ),
                     };
 
                     if event_sender.send(test_event).is_err() {
-                        println!("Canal de eventos cerrado, terminando simulación");
+                        if _config.verbose_logging {
+                            println!("Canal de eventos cerrado, terminando simulación");
+                        }
                         return;
                     }
 
@@ -239,7 +242,7 @@ impl UniversalAudioAnalyzer {
                     last_event = Instant::now();
                     
                     // Log periódico para debug
-                    if event_counter % 10 == 0 {
+                    if _config.verbose_logging && event_counter % 10 == 0 {
                         println!("🎼 {} eventos simulados generados", event_counter);
                     }
                 }
@@ -249,8 +252,7 @@ impl UniversalAudioAnalyzer {
         })
     }
 
-    /* 
-    // Código para audio real (para implementación futura cuando se resuelvan dependencias)
+    /* // Código para audio real (para implementación futura cuando se resuelvan dependencias)
     fn setup_real_audio(
         config: &AudioAnalysisConfig,
         event_sender: Sender<DetectedEvent>,
@@ -259,4 +261,54 @@ impl UniversalAudioAnalyzer {
         Err("Audio real no disponible en esta versión".into())
     }
     */
+}
+
+impl UniversalAudioAnalyzer {
+    fn generate_onset(frequency: f32, sharpness: f32, timestamp: f64, amplitude: f32, confidence: f32, duration: f64) -> DetectedEvent {
+        DetectedEvent {
+            event_type: DetectedEventType::Onset { frequency, sharpness },
+            timestamp,
+            duration,
+            amplitude,
+            confidence,
+        }
+    }
+
+    fn generate_pitch_track(start_freq: f32, end_freq: f32, stability: f32, timestamp: f64, amplitude: f32, confidence: f32, duration: f64) -> DetectedEvent {
+        DetectedEvent {
+            event_type: DetectedEventType::PitchTrack { start_freq, end_freq, stability },
+            timestamp,
+            duration,
+            amplitude,
+            confidence,
+        }
+    }
+
+    fn generate_cluster(center_freq: f32, spread: f32, density: usize, timestamp: f64, amplitude: f32, confidence: f32, duration: f64) -> DetectedEvent {
+        DetectedEvent {
+            event_type: DetectedEventType::SpectralCluster { center_freq, spread, density },
+            timestamp,
+            duration,
+            amplitude,
+            confidence,
+        }
+    }
+
+    fn generate_noise_texture(freq_center: f32, bandwidth: f32, roughness: f32, timestamp: f64, amplitude: f32, confidence: f32, duration: f64) -> DetectedEvent {
+        DetectedEvent {
+            event_type: DetectedEventType::NoiseTexture { freq_center, bandwidth, roughness },
+            timestamp,
+            duration,
+            amplitude,
+            confidence,
+        }
+    }
+
+    pub fn simulate_single_event(config: &AudioAnalysisConfig) -> DetectedEvent {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64();
+        Self::generate_onset(440.0, 0.7, timestamp, 0.8, 0.9, 0.5)
+    }
 }

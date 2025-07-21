@@ -1,7 +1,5 @@
-// 🏗️ Módulo de la aplicación
-// Contiene el estado y ciclo de vida de la aplicación
+pub mod update;
+pub mod view;
 
-pub mod state;
-pub mod lifecycle;
-
-pub use state::AppState;
+pub use update::update;
+pub use view::view;

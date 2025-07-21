@@ -97,6 +97,9 @@ impl OptimizedRenderer {
         if self.render_stats.borrow().frames_rendered % 60 == 0 {
             self.log_performance();
         }
+        
+        // Dibuja la barra de timeline profesional
+        crate::visual::renderer::draw_timeline_bar(draw, win, current_time, &crate::config::AppConfig::default());
     }
 
     /// Procesa eventos con sincronización temporal

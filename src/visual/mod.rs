@@ -1,11 +1,7 @@
-// 🎨 Módulo visual
-// Maneja toda la lógica de renderizado y visualización
+// src/visual/mod.rs
 
-pub mod audio_visual_mapping;
-pub mod audio_visual_mapping_pro;
+pub mod renderer;
 pub mod shader_manager;
+pub mod visual_note; // Asegúrate de que este archivo exista
 
-// Re-exportar tipos importantes
-pub use audio_visual_mapping::{VisualNote, AudioVisualMapper};
-pub use audio_visual_mapping_pro::{ColorPalette, ProAudioVisualMapper};
-pub use shader_manager::ShaderManager;
+pub use visual_note::VisualNote; // Exportar VisualNote

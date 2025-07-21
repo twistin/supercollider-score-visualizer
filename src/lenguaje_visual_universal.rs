@@ -274,13 +274,12 @@ impl TimbreEspacio {
     fn calcular_centroide_espectral(&self, espectro: &[f32]) -> f32 {
         let mut suma_ponderada = 0.0;
         let mut suma_magnitudes = 0.0;
-        
+        let bin_freq = 22050.0 / espectro.len() as f32;
         for (i, magnitud) in espectro.iter().enumerate() {
-            let frecuencia = i as f32 * (22050.0 / espectro.len() as f32); // Asumiendo Fs=44100
+            let frecuencia = i as f32 * bin_freq;
             suma_ponderada += frecuencia * magnitud;
             suma_magnitudes += magnitud;
         }
-        
         if suma_magnitudes > 0.0 {
             suma_ponderada / suma_magnitudes
         } else {
@@ -291,18 +290,17 @@ impl TimbreEspacio {
     fn calcular_armonicidad(&self, espectro: &[f32]) -> f32 {
         // Análisis de armonicidad vs inharmonicidad
         // Implementación simplificada - en producción usar HNR (Harmonic-to-Noise Ratio)
-        
+
         let mut picos = Vec::new();
         for i in 1..espectro.len()-1 {
             if espectro[i] > espectro[i-1] && espectro[i] > espectro[i+1] && espectro[i] > 0.1 {
                 picos.push((i, espectro[i]));
             }
         }
-        
+        let picos = picos.into_iter().take(50).collect::<Vec<_>>();
         if picos.len() < 2 {
             return 0.0;
         }
-        
         // Buscar relaciones armónicas entre picos
         let mut relaciones_armonicas = 0;
         for i in 0..picos.len() {
@@ -313,19 +311,13 @@ impl TimbreEspacio {
                 }
             }
         }
-        
         relaciones_armonicas as f32 / (picos.len() * picos.len()) as f32
     }
     
     fn calcular_rugosidad(&self, espectro: &[f32]) -> f32 {
         // Detectar rugosidad/aspereza del sonido
         // Basado en diferencias rápidas en el espectro
-        
-        let mut rugosidad = 0.0;
-        for i in 1..espectro.len() {
-            rugosidad += (espectro[i] - espectro[i-1]).abs();
-        }
-        
+        let rugosidad: f32 = espectro.windows(2).map(|w| (w[1] - w[0]).abs()).sum();
         rugosidad / espectro.len() as f32
     }
     
@@ -392,7 +384,7 @@ impl ColorSinestesia {
         self.hsv_a_rgb(hue, 0.8, 0.9)
     }
     
-    fn mapeo_calido_frio(&self, frecuencia: f32) -> [f32; 3] {
+    fn mapeo_calido_frio(&self, frecuencia: f33) -> [f32; 3] {
         let freq_normalizada = ((frecuencia.log2() - 20.0f32.log2()) / 
                                (8000.0f32.log2() - 20.0f32.log2())).clamp(0.0, 1.0);
         

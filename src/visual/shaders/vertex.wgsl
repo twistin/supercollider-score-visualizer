@@ -19,7 +19,9 @@ struct Uniforms {
     time: f32,
     audio_level: f32,
     beat_intensity: f32,
-    _padding: f32,
+    glow_strength: f32,
+    particle_center: vec2<f32>,
+    _padding: vec2<f32>,
 }
 
 @group(0) @binding(0)

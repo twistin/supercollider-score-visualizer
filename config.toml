@@ -1,77 +1,86 @@
-# SC Score Visualizer - Configuración Principal
-# Archivo de configuración para el visualizador de audio
-
 [osc]
-# Configuración del servidor OSC
 listen_host = "127.0.0.1"
-listen_port = 7777
+listen_port = 6000
 buffer_size = 1024
 timeout_ms = 10
-max_messages_per_frame = 50
-
-[window]
-# Configuración de la ventana principal
-width = 1200
-height = 800
-title = "SC Score Visualizer v2.0"
-vsync = true
-resizable = true
-
-[visual]
-# Configuración visual por defecto
-quality = "High"  # Low, Medium, High, Ultra
-background_style = "Modern"  # Modern, Simple, Gradient, None
-show_debug = true
-show_grid = true
-fps_target = 60
-time_window = 10.0
-max_events = 200
-background_color = [8, 15, 30]
-event_fade_time = 3.0
+max_messages_per_frame = 100
 
 [audio]
-# Rangos de validación para parámetros de audio
 freq_min = 20.0
 freq_max = 20000.0
 amp_min = 0.0
 amp_max = 1.0
 dur_min = 0.1
 dur_max = 10.0
+enable_input_capture = false
 
-[performance]
-# Configuración de rendimiento
-max_notes = 100
-max_drones = 10
-max_cluster_particles = 100
-cleanup_interval_frames = 300  # Limpiar eventos expirados cada 5 segundos a 60fps
+[visual]
+quality = "High"
+theme = "Modern"
+debug_mode = true
+show_fps = true
+background_color = [
+    0.1,
+    0.1,
+    0.1,
+    1.0,
+]
+show_grid = true
+grid_color = [
+    0.2,
+    0.2,
+    0.2,
+    0.5,
+]
+grid_frequency_lines = [
+    60.0,
+    120.0,
+    240.0,
+    480.0,
+    960.0,
+    1920.0,
+]
+timeline_divisions = 8
+timeline_duration = 10.0
+background_style = "Solid"
+show_debug = true
 
 [midi]
-# Configuración MIDI (opcional)
 enabled = true
-default_note_duration = 1.0  # Duración por defecto para notas MIDI en segundos
-velocity_scaling = 1.0        # Escalado de velocidad (1.0 = normal, 0.5 = más suave)
-channel_instruments = [       # Mapeo de canales MIDI a instrumentos
-    "piano",    # Canal 1
-    "sine",     # Canal 2  
-    "triangle", # Canal 3
-    "square",   # Canal 4
-    "sawtooth", # Canal 5
-    "bell",     # Canal 6
-    "pad",      # Canal 7
-    "lead",     # Canal 8
-    "drums",    # Canal 9 (batería)
-    "sine",     # Canal 10
-    "sine",     # Canal 11
-    "sine",     # Canal 12
-    "sine",     # Canal 13
-    "sine",     # Canal 14
-    "sine",     # Canal 15
-    "sine"      # Canal 16
+input_port_name = "IAC Driver Bus 1"
+channel_instruments = [
+    "piano",
+    "strings",
+    "synth",
+    "bass",
+    "drums",
+    "guitar",
+    "flute",
+    "trumpet",
+    "clarinet",
+    "oboe",
+    "french_horn",
+    "tuba",
+    "violin",
+    "cello",
+    "harp",
+    "percussion",
 ]
+default_note_duration = 0.5
+
+[debug]
+enable_logs = true
+log_level = "Debug"
+
+[window]
+width = 1280
+height = 720
+title = "SC Score Visualizer"
+resizable = true
 
 [logging]
-# Configuración de logging
-level = "Info"  # Debug, Info, Warning, Error
-show_osc_messages = true
 show_performance_stats = true
-stats_interval_frames = 300
+stats_interval_frames = 60
+
+[performance]
+cleanup_interval_frames = 300

@@ -16,6 +16,7 @@ pub struct VisualNote {
     pub timestamp: f64,          // Timestamp para scroll temporal
     pub age: f32,               // Edad en segundos desde creación
     pub lifetime_progress: f32,  // Progreso de vida (0.0-1.0)
+    pub birth_time: f32,         // Tiempo de creación de la nota
     
     // Propiedades espaciales
     pub position: Vec2,         // Coordenadas x/y calculadas
@@ -43,6 +44,13 @@ pub struct VisualNote {
     pub note_id: u64,           // ID único de la nota
     pub layer: VisualLayer,     // Capa de renderizado
     pub priority: u8,           // Prioridad de renderizado (0-255)
+}
+
+impl VisualNote {
+    pub fn is_active(&self) -> bool {
+        // Considera la nota activa si su edad es menor que su duración más un pequeño búfer.
+        self.age < self.duration + 2.0
+    }
 }
 
 /// Estilos visuales según tipo de evento musical
@@ -218,6 +226,7 @@ impl AudioVisualMapper {
             timestamp,
             age: 0.0,
             lifetime_progress: 0.0,
+            birth_time: timestamp as f32,
             position,
             velocity,
             target_position: position, // Inicialmente igual a posición

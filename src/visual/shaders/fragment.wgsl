@@ -25,8 +25,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     var color = input.color;
     
     // ¡NUEVO! Efecto de ondas concéntricas
-    let center = vec2<f32>(0.5, 0.5);
-    let dist = length(input.uv - center);
+    let uv = input.uv;
+    let centered_uv = uv - vec2<f32>(0.5, 0.5);
+    let dist = length(centered_uv);
     let wave_rings = sin(dist * 20.0 - uniforms.time * 4.0) * 0.3 + 0.7;
     
     // Efecto de pulsación con audio mejorado
@@ -44,7 +45,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     );
     
     // Combinación final con nuevos efectos
-    color = mix(color, time_color, 0.3) * (1.0 + audio_glow + beat_flash) * wave_rings;
+    let dynamic_mix = mix(color, time_color, 0.3);
+    let modulated = dynamic_mix * (1.0 + audio_glow + beat_flash) * wave_rings;
+    color = modulated;
     
     // Degradado UV para efectos adicionales
     let uv_factor = length(input.uv - vec2<f32>(0.5, 0.5));

@@ -1,23 +1,29 @@
-// ejemplos_live_coding.scd - Ejemplos completos para sesiones de live coding
 
+
+~ejemplo1.play;
+n = NetAddr("127.0.0.1", 7771);
+n.sendMsg("/note_on", 21440.0, 0.8, 1.5);
+
+// ejemplos_live_coding.scd - Ejemplos completos para sesiones de live coding
+s.boot
 // ====================================================================
 // EJEMPLO 1: SECUENCIA BÁSICA
 // ====================================================================
 
 // Cargar configuración primero
-"setup_visualizer.scd".load;
+("setup_visualizer.scd").loadRelative;
 
 // Secuencia simple de notas
 (
 ~ejemplo1 = Routine({
     var escala = [60, 62, 64, 65, 67, 69, 71, 72].midicps;
     "🎵 Ejemplo 1: Secuencia básica".postln;
-    
+
     escala.do({ |freq|
         ~sendNote.value(freq, 0.6, 0.5);
         0.5.wait;
     });
-    
+
     "✅ Ejemplo 1 completado".postln;
 }).play;
 )
@@ -25,21 +31,23 @@
 // ====================================================================
 // EJEMPLO 2: GENERACIÓN ALEATORIA
 // ====================================================================
-
+~visualizer.sendMsg("/mode", "henke");
 (
+~visualizer.sendMsg("/mode", "henke"); // Movido dentro del bloque
 ~ejemplo2 = Routine({
+    var endTime, freq, amp, dur;
     "🎲 Ejemplo 2: Generación aleatoria (10 segundos)".postln;
-    
-    var endTime = Main.elapsedTime + 10;
+
+    endTime = Main.elapsedTime + 10;
     while { Main.elapsedTime < endTime } {
-        var freq = rrand(200, 2000);
-        var amp = rrand(0.2, 0.8);
-        var dur = rrand(0.3, 2.0);
-        
+        freq = rrand(200, 2000);
+        amp = rrand(0.2, 0.8);
+        dur = rrand(0.3, 2.0);
+
         ~sendNote.value(freq, amp, dur);
         rrand(0.1, 0.8).wait;
     };
-    
+
     "✅ Ejemplo 2 completado".postln;
 }).play;
 )
@@ -85,7 +93,7 @@
 // Detener después de 20 segundos
 SystemClock.sched(20, {
     ~melodia.stop;
-    ~bajo.stop; 
+    ~bajo.stop;
     ~texturas.stop;
     "✅ Ejemplo 3 completado".postln;
 });
@@ -104,8 +112,9 @@ SystemClock.sched(20, {
 ~rango = 500;
 
 ~controlDinamico = Routine({
+	var freq;
     loop {
-        var freq = rrand(440 - ~rango, 440 + ~rango);
+        freq = rrand(440 - ~rango, 440 + ~rango);
         ~sendNote.value(freq, ~intensidad, ~velocidad);
         ~velocidad.wait;
     }
@@ -116,17 +125,17 @@ SystemClock.sched(20, {
     loop {
         // Cambiar velocidad
         ~velocidad = rrand(0.2, 1.0);
-        
+
         // Cambiar intensidad
         ~intensidad = rrand(0.3, 0.8);
-        
+
         // Cambiar rango
         ~rango = rrand(200, 1000);
-        
-        ("⚡ Cambios: velocidad=" ++ ~velocidad.round(0.1) ++ 
-         ", intensidad=" ++ ~intensidad.round(0.1) ++ 
+
+        ("⚡ Cambios: velocidad=" ++ ~velocidad.round(0.1) ++
+         ", intensidad=" ++ ~intensidad.round(0.1) ++
          ", rango=" ++ ~rango).postln;
-        
+
         3.0.wait;
     }
 }).play;
@@ -207,14 +216,15 @@ SystemClock.sched(12, {
 
 // Ejecutar drones en paralelo
 ~ambientPattern = Routine({
+	var freq;
     fork { loop { ~drone1.value } };
     fork { 2.0.wait; loop { ~drone2.value } };
     fork { 4.0.wait; loop { ~drone3.value } };
-    
+
     // Agregar notas esporádicas
     loop {
         if (0.3.coin) {
-            var freq = [330, 440, 523.25, 659.25].choose;
+            freq = [330, 440, 523.25, 659.25].choose;
             ~sendNote.value(freq, 0.5, 3.0);
         };
         rrand(2.0, 6.0).wait;
@@ -257,7 +267,7 @@ Routine({
         [~tocarGrave, ~tocarMedio, ~tocarAgudo].choose.value;
         1.0.wait;
     });
-    
+
     "🎭 Modo interactivo: ejecuta las funciones manualmente".postln;
     "Ejemplo: ~tocarGrave.value".postln;
 }).play;
@@ -272,7 +282,8 @@ Routine({
 
 // Estructura: Intro -> Desarrollo -> Clímax -> Outro
 ~composicion = Routine({
-    
+	var melodia, bajo;
+
     // INTRO (8 segundos)
     "🎵 Intro...".postln;
     fork {
@@ -282,19 +293,19 @@ Routine({
         });
     };
     8.0.wait;
-    
+
     // DESARROLLO (12 segundos)
     "🎵 Desarrollo...".postln;
     fork {
-        var melodia = Routine({
+        melodia = Routine({
             var notas = [440, 493.88, 523.25, 587.33].midicps;
             12.do({
                 ~sendNote.value(notas.choose, 0.6, 0.8);
                 1.0.wait;
             });
         }).play;
-        
-        var bajo = Routine({
+
+        bajo = Routine({
             6.do({
                 ~sendNote.value([110, 146.83].choose, 0.5, 2.0);
                 2.0.wait;
@@ -302,7 +313,7 @@ Routine({
         }).play;
     };
     12.0.wait;
-    
+
     // CLÍMAX (8 segundos)
     "🎵 Clímax...".postln;
     fork {
@@ -313,7 +324,7 @@ Routine({
         });
     };
     8.0.wait;
-    
+
     // OUTRO (6 segundos)
     "🎵 Outro...".postln;
     fork {
@@ -322,7 +333,7 @@ Routine({
         ~sendNote.value(440, 0.6, 3.0);
     };
     6.0.wait;
-    
+
     "✅ Composición completada".postln;
 }).play;
 )
@@ -333,8 +344,8 @@ Routine({
 
 // Detener todos los ejemplos
 ~detenerTodo = {
-    [~ejemplo1, ~ejemplo2, ~melodia, ~bajo, ~texturas, 
-     ~controlDinamico, ~cambios, ~kick, ~snare, ~hihat, 
+    [~ejemplo1, ~ejemplo2, ~melodia, ~bajo, ~texturas,
+     ~controlDinamico, ~cambios, ~kick, ~snare, ~hihat,
      ~ambientPattern, ~composicion].do({ |routine|
         if (routine.notNil) { routine.stop };
     });
@@ -369,3 +380,13 @@ Routine({
 ~menuEjemplos.value;
 
 "📝 Ejemplos de live coding cargados. Ejecuta ~menuEjemplos.value para ver la lista.".postln;
+~sendNote.value(440.0, 0.5, 1.0);
+
+~visualizer.sendMsg("/test", "SuperCollider está enviando!");
+ "Mensaje de prueba enviado desde SC".postln;
+
+
+
+~testConnection.value
+
+                                                                              ac

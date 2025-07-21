@@ -1,193 +1,161 @@
-// 🎨 Renderizado visual
-// Maneja toda la lógica de renderizado de eventos musicales
-
+// src/visual/renderer.rs
 use nannou::prelude::*;
-use crate::app::state::AppState;
+use crate::model::Model;
+// use crate::visual::VisualNote; // Eliminado: no se usa
 use crate::config::AppConfig;
-use tracing::warn;
+use crate::events::map_freq_to_y; // <-- Importar map_freq_to_y desde events.rs
 
-/// Renderiza un frame completo de la aplicación
-pub fn render_frame(app: &App, model: &crate::app::lifecycle::Model, frame: Frame) {
+// Función principal para renderizar el visualizador
+pub fn render_visualizer(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
-
-    // Usar color de fondo de la configuración
-    let bg_color = &model.config.visual.background_color;
-    draw.background().color(srgb8(bg_color[0], bg_color[1], bg_color[2]));
-
     let win = app.window_rect();
 
-    // Dibujar grilla de referencia si está habilitada
-    if model.config.visual.grid_enabled {
-        draw_frequency_grid(&draw, &win, &model.config);
+    // Limpiar el fondo con el color configurado
+    let bg_color = &model.config.visual.background_color;
+draw.background().color(Rgba::new(bg_color[0], bg_color[1], bg_color[2], bg_color[3]));
+
+    // Dibujar cuadrícula si está habilitada
+    if model.config.visual.show_grid {
+        draw_grid(&draw, &win, &model.config);
     }
 
-    // Renderizar eventos con renderizador optimizado
-    match model.state.get_events_for_render() {
-        Ok(events) => {
-            model
-                .renderer
-                .render(&draw, &win, &events, model.state.time);
-        }
-        Err(e) => {
-            warn!("⚠️ Error obteniendo eventos para renderizar: {}", e);
-            // Continuar sin renderizar eventos
-        }
+    // Dibujar notas visuales
+    for note in &model.visual_notes {
+        model.shader_manager.render_visual_note(&draw, note);
     }
 
-    // Panel de información
-    match draw_info_panel(
-        &draw,
-        &win,
-        model.state.time,
-        &model.state,
-        &model.config,
-    ) {
-        Ok(_) => {}
-        Err(e) => {
-            warn!("⚠️ Error dibujando panel de información: {}", e);
-        }
-    }
+    // Dibujar línea de tiempo
+    draw_timeline_bar(&draw, &win, model.elapsed_time, &model.config);
 
+    // Dibujar estadísticas OSC y otros datos de depuración
+    if model.config.visual.show_debug {
+        draw_debug_info(&draw, &win, model);
+    }
+    // Renderizar al frame
     draw.to_frame(app, &frame).unwrap();
 }
 
-/// Dibuja la grilla de frecuencias usando configuración
-fn draw_frequency_grid(draw: &Draw, win: &Rect, config: &AppConfig) {
+// Dibuja la cuadrícula de fondo
+fn draw_grid(draw: &Draw, win: &Rect, config: &AppConfig) {
     let grid_color = &config.visual.grid_color;
-    let grid_rgba = srgba(
-        grid_color[0] as f32 / 255.0,
-        grid_color[1] as f32 / 255.0,
-        grid_color[2] as f32 / 255.0,
-        grid_color[3] as f32 / 255.0,
-    );
+    let color = Rgba::new(grid_color[0], grid_color[1], grid_color[2], grid_color[3]);
 
-    // Líneas horizontales de frecuencia usando configuración
-    for freq in &config.visual.grid_frequency_lines {
-        let y = map_range(
-            *freq,
-            config.audio.freq_range_min,
-            config.audio.freq_range_max,
-            win.bottom(),
-            win.top(),
-        );
-
-        // Solo dibujar si está dentro del área visible con margen
-        if y >= win.bottom() + 30.0 && y <= win.top() - 30.0 {
-            draw.line()
-                .start(pt2(win.left(), y))
-                .end(pt2(win.right(), y))
-                .weight(2.0)
-                .color(grid_rgba);
-
-            // Etiqueta de frecuencia - solo mostrar algunas para evitar superposición
-            // Mostrar solo cada segunda frecuencia para reducir clutter
-            if (*freq as u32) % 440 == 0 || *freq == 1760.0 {
-                draw.text(&format!("{}Hz", freq))
-                    .xy(pt2(win.left() + 50.0, y + 5.0)) // Posición más separada
-                    .font_size(10) // Tamaño menor
-                    .color(srgba(0.8, 0.8, 0.9, 0.7)); // Menos opacidad
-            }
-        }
+    // Dibujar líneas horizontales de frecuencia
+    for &freq in &config.visual.grid_frequency_lines {
+        let y = map_freq_to_y(freq, &config.audio, *win);
+        draw.line()
+            .points(pt2(win.left(), y), pt2(win.right(), y))
+            .color(color)
+            .stroke_weight(1.0);
+        draw.text(&format!("{:.0} Hz", freq))
+            .font_size(10)
+            .color(color)
+            .x(win.left() + 20.0)
+            .y(y + 5.0);
     }
 
-    // Líneas verticales de tiempo usando configuración
-    for i in 0..=config.visual.grid_time_divisions {
-        let x = win.left() + (i as f32 * win.w() / config.visual.grid_time_divisions as f32);
-
-        // Solo dibujar si está dentro del área visible con margen
-        if x >= win.left() + 60.0 && x <= win.right() - 20.0 {
-            draw.line()
-                .start(pt2(x, win.bottom()))
-                .end(pt2(x, win.top()))
-                .weight(1.5)
-                .color(srgba(
-                    grid_rgba.red * 0.7,
-                    grid_rgba.green * 0.7,
-                    grid_rgba.blue * 0.7,
-                    grid_rgba.alpha * 0.8,
-                ));
-
-            // Etiquetas de tiempo - mostrar 0s y luego cada 4 divisiones
-            if i == 0 || (i % 4 == 0 && i > 0) {
-                let time_seconds = i as f32 * 0.5; // Asumiendo 0.5s por división
-                draw.text(&format!("{:.1}s", time_seconds))
-                    .xy(pt2(x - 5.0, win.bottom() + 20.0)) // Centrar horizontalmente y posición fija visible
-                    .font_size(10) // Tamaño más grande para mejor visibilidad
-                    .color(srgba(0.8, 0.8, 0.9, 0.8)); // Más visible
-            }
-        }
+    // Líneas verticales (divisiones de tiempo)
+    let divisions = config.visual.timeline_divisions.max(1);
+    let step_x = win.w() / divisions as f32;
+    for i in 0..=divisions {
+        let x = win.left() + (i as f32 * step_x);
+        draw.line()
+            .points(pt2(x, win.bottom()), pt2(x, win.top()))
+            .color(color)
+            .stroke_weight(1.0);
     }
 }
 
-/// Dibuja el panel de información
-fn draw_info_panel(
-    draw: &Draw,
-    win: &Rect,
-    current_time: f32,
-    state: &AppState,
-    config: &AppConfig,
-) -> anyhow::Result<()> {
-    let panel_width = 300.0;
-    let panel_height = 140.0;
-    let panel_x = win.right() - panel_width / 2.0 - 20.0;
-    let panel_y = win.top() - panel_height / 2.0 - 20.0;
+// Dibuja la barra de progreso de la línea de tiempo
+fn draw_timeline_bar(draw: &Draw, win: &Rect, current_time: f32, config: &AppConfig) {
+    let timeline_duration = config.visual.timeline_duration;
+    let progress = (current_time % timeline_duration) / timeline_duration;
+    let bar_width = win.w() * progress;
 
-    // Fondo del panel
     draw.rect()
-        .x_y(panel_x, panel_y)
-        .w_h(panel_width, panel_height)
-        .color(srgba(0.0, 0.0, 0.0, 0.8))
-        .stroke(srgba(0.4, 0.6, 0.9, 0.9))
-        .stroke_weight(2.5);
+        .x(win.left() + bar_width / 2.0)
+        .y(win.bottom() + 10.0)
+        .w(bar_width)
+        .h(5.0)
+        .color(STEELBLUE);
 
-    // Información
-    let active_events = state.get_active_events_count().unwrap_or_else(|e| {
-        eprintln!("Error obteniendo eventos activos: {}", e);
-        0
-    });
-    let total_events = state.get_total_events_count().unwrap_or_else(|e| {
-        eprintln!("Error obteniendo total de eventos: {}", e);
-        0
-    });
-
-    let status_lines = [
-        format!("🎵 {} v2.0", config.visual.window_title),
-        format!("📊 Activos: {}/{}", active_events, total_events),
-        format!("⏱️ {:.1}s", current_time),
-        format!("📡 OSC: {}:{}", config.audio.osc_host, config.audio.osc_port),
-        format!(
-            "⏰ Sync: {}",
-            if config.performance.time_sync_enabled {
-                "ON"
-            } else {
-                "OFF"
-            }
-        ),
-        format!(
-            "🎨 Batching: {}",
-            if config.performance.batching_enabled {
-                "ON"
-            } else {
-                "OFF"
-            }
-        ),
-        "💾 'S' = Exportar | 'T' = Sync | 'C' = Config".to_string(),
-    ];
-
-    // Centrado perfecto
-    let line_spacing = 17.0;
-    let total_text_height = (status_lines.len() as f32 - 1.0) * line_spacing;
-    let text_start_y = panel_y + (total_text_height / 2.0);
-
-    for (i, line) in status_lines.iter().enumerate() {
-        let text_y = text_start_y - (i as f32 * line_spacing);
-
-        draw.text(line)
-            .xy(pt2(panel_x, text_y))
-            .font_size(11)
-            .color(srgba(0.7, 0.8, 0.95, 0.95))
-            .center_justify();
+    // Dibujar marcadores de tiempo
+    let divisions = config.visual.timeline_divisions.max(4);
+    for i in 0..=divisions {
+        let t = i as f32 * timeline_duration / divisions as f32;
+        let x = map_time_to_x(t, win, timeline_duration);
+        draw.line()
+.points(pt2(x, win.bottom() + 5.0), pt2(x, win.bottom() + 15.0))
+            .color(WHITE)
+            .stroke_weight(1.0);
+        draw.text(&format!("{:.1}s", t))
+            .font_size(10)
+            .color(WHITE)
+            .x(x)
+            .y(win.bottom() + 20.0);
     }
+}
 
-    Ok(())
+// Dibuja información de depuración (FPS, estadísticas OSC)
+fn draw_debug_info(draw: &Draw, win: &Rect, model: &Model) {
+    let text_color = WHITE;
+    let font_size = 12;
+    let margin = 20.0;
+
+    let fps = 1.0 / model.last_update_time.elapsed().as_secs_f32();
+    let fps_text = draw.text(&format!("FPS: {:.0}", fps))
+        .font_size(font_size)
+        .color(text_color)
+        .x(win.right() - margin)
+        .y(win.top() - margin);
+    fps_text.right_justify().no_line_wrap();
+
+    let osc_stats_text = draw.text(&format!(
+        "OSC Recibidos: {}\nOSC Procesados: {}\nErrores OSC: {}",
+        model.osc_stats.total_received,
+        model.osc_stats.total_processed,
+        model.osc_stats.failed_messages
+    ))
+    .font_size(font_size)
+    .color(text_color)
+    .x(win.right() - margin)
+    .y(win.top() - margin - 30.0);
+    osc_stats_text.right_justify().no_line_wrap();
+
+    let scroll_text = draw.text(&format!(
+        "Scroll Mode: {:?}\nDisplay Mode: {:?}",
+        model.scroll_mode, model.display_mode
+    ))
+    .font_size(font_size)
+    .color(text_color)
+    .x(win.left() + margin)
+    .y(win.top() - margin);
+    scroll_text.left_justify().no_line_wrap();
+
+    // Mostrar datos de análisis actuales o realtime
+    let analysis_text = if let Some(rt_data) = &model.current_realtime_data {
+        format!("Realtime: P={:.2}, A={:.2}, C={:.2}", rt_data.pitch, rt_data.amplitude, rt_data.centroid)
+    } else {
+        format!("Análisis: Amp={:.2}, Bright={:.2}, Noisy={:.2}",
+            model.current_analysis_data.0,
+            model.current_analysis_data.1,
+            model.current_analysis_data.2
+        )
+    };
+    let analysis_text_obj = draw.text(&analysis_text)
+        .font_size(font_size)
+        .color(text_color)
+        .x(win.left() + margin)
+        .y(win.top() - margin - 50.0);
+    analysis_text_obj.left_justify().no_line_wrap();
+}
+
+
+// map_freq_to_y ha sido movida a events.rs
+// fn map_freq_to_y(freq: f32, win: &Rect, audio_config: &crate::config::AudioConfig) -> f32 {
+//     map_range(freq, audio_config.freq_min, audio_config.freq_max, win.bottom() + 50.0, win.top() - 50.0)
+// }
+
+fn map_time_to_x(time: f32, win: &Rect, timeline_duration: f32) -> f32 {
+    map_range(time, 0.0, timeline_duration, win.left() + 50.0, win.right() - 50.0)
 }

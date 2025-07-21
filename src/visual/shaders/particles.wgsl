@@ -13,7 +13,9 @@ struct Uniforms {
     time: f32,
     audio_level: f32,
     beat_intensity: f32,
-    _padding: f32,
+    glow_strength: f32,
+    particle_center: vec2<f32>,
+    _padding: vec2<f32>,
 }
 
 @group(0) @binding(0)
@@ -21,8 +23,7 @@ var<uniform> uniforms: Uniforms;
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let center = vec2<f32>(0.5, 0.5);
-    let dist = length(input.uv - center);
+    let dist = length(input.uv - uniforms.particle_center);
     
     // Efecto de partícula circular
     let particle_radius = 0.4;
@@ -30,17 +31,21 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let alpha = 1.0 - smoothstep(particle_radius - edge_softness, particle_radius, dist);
     
     // Color dinámico basado en audio
-    let audio_color = vec3<f32>(
+    let base_color = input.color;
+    let reactive_color = vec3<f32>(
         uniforms.audio_level * 0.8 + 0.2,
         uniforms.beat_intensity * 0.6 + 0.4,
         sin(uniforms.time * 3.0) * 0.3 + 0.7
     );
-    
-    let final_color = mix(input.color, audio_color, uniforms.audio_level);
+    let final_color = mix(base_color, reactive_color, uniforms.audio_level);
     
     // Brillo central
     let core_glow = 1.0 - smoothstep(0.0, 0.2, dist);
-    let glow_color = final_color * (1.0 + core_glow * 2.0);
+    let glow_color = final_color * (1.0 + core_glow * uniforms.glow_strength);
     
+    // Lógica de modo debug visual
+    if uniforms.audio_level < 0.0 {
+        return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    }
     return vec4<f32>(glow_color, alpha);
 }

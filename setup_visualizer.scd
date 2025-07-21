@@ -1,41 +1,75 @@
+
+
+
+
 // setup_visualizer.scd - Configuración básica del visualizador SC Score Visualizer
 // Cargar este archivo en SuperCollider para comenzar con live coding
 
-// ====================================================================
+
+
+
+//============================================================
 // CONFIGURACIÓN INICIAL
 // ====================================================================
 
 // Configurar servidor de audio
 s.boot;
 
+// Salir de ProxySpace si estamos en uno para evitar conflictos
+if(currentEnvironment.isKindOf(ProxySpace)) {
+    "Saliendo de ProxySpace para configuración...".postln;
+    currentEnvironment = topEnvironment;
+};
+
+// Definir un sintetizador simple para generar audio
+SynthDef(\default, { |out = 0, freq = 440, amp = 0.5, dur = 1.0|
+    var env = Env.perc(0.01, dur, amp, -4).kr(doneAction: 2);
+    var sig = SinOsc.ar(freq, 0, 0.5);
+    var pan = Pan2.ar(sig, 0);
+    Out.ar(out, pan * env);
+}).add;
+
 // Configurar NetAddr para comunicación OSC con el visualizador
-~visualizer = NetAddr("127.0.0.1", 7777);
+// Usar variable global directamente
+~visualizer = NetAddr("127.0.0.1", 6000); // Asegúrate de que este puerto coincida con el que Nannou está escuchando
 
 "🎵 Configurando SC Score Visualizer...".postln;
 
 // ====================================================================
-// FUNCIONES BÁSICAS
+// FUNCIONES BÁSICAS (CON AUDIO)
 // ====================================================================
 
-// Función para enviar notas al visualizador
+// Función para enviar notas al visualizador y reproducir sonido
+(
 ~sendNote = { |freq, amp, dur|
-    ~visualizer.sendMsg("/note", freq, amp, dur);
+    Synth(\default, [freq: freq, amp: amp, dur: dur]);
+    ~visualizer.sendMsg("/note_on", freq, amp, dur); // <--- CAMBIADO A /note_on
 };
+);
 
-// Función para enviar drones (sonidos continuos)
+// Función para enviar drones y reproducir sonido
+(
 ~sendDrone = { |freq, amp, dur|
-    ~visualizer.sendMsg("/drone", freq, amp, dur);
+    Synth(\default, [freq: freq, amp: amp, dur: dur]);
+    ~visualizer.sendMsg("/drone_on", freq, amp, dur); // <--- CAMBIADO A /drone_on
 };
+);
 
-// Función para enviar clusters (múltiples eventos)
+// Función para enviar clusters y reproducir sonido
+(
 ~sendCluster = { |freq, amp, dur, density|
-    ~visualizer.sendMsg("/cluster", freq, amp, dur, density);
+    // Tocar una nota representativa del clúster
+    Synth(\default, [freq: freq, amp: amp, dur: dur]);
+    ~visualizer.sendMsg("/cluster", freq, amp, dur, density); // Se mantiene /cluster por ahora
 };
+);
 
 // Función para limpiar eventos
+(
 ~clearAll = {
-    ~visualizer.sendMsg("/clear");
+    ~visualizer.sendMsg("/clear"); // Se mantiene /clear por ahora
 };
+);
 
 // ====================================================================
 // FUNCIONES DE UTILIDAD
@@ -68,8 +102,9 @@ s.boot;
 
 // Prueba de escala
 ~testScale = {
+    var escala;
     "🎶 Probando escala...".postln;
-    var escala = ~generateScale.value(60, ~majorScale); // Do mayor
+    escala = ~generateScale.value(60, ~majorScale); // Do mayor
     Routine({
         escala.do({ |freq|
             ~sendNote.value(freq, 0.6, 0.5);
@@ -110,7 +145,7 @@ s.boot;
             var freq = rrand(200, 2000);
             var amp = rrand(0.2, 0.8);
             var dur = rrand(0.5, 3.0);
-            
+
             ~sendNote.value(freq, amp, dur);
             rrand(0.1, 1.0).wait;
         }
@@ -176,17 +211,17 @@ s.boot;
         loop {
             // Nota principal
             ~sendNote.value(rrand(300, 800), 0.7, 2.0);
-            
+
             // Drone de fondo ocasional
             if (0.3.coin) {
                 ~sendDrone.value(rrand(80, 120), 0.2, 4.0);
             };
-            
+
             // Cluster esporádico
             if (0.2.coin) {
                 ~sendCluster.value(rrand(500, 1500), 0.5, 1.5, rrand(5, 12));
             };
-            
+
             rrand(0.5, 2.0).wait;
         }
     }).play;
@@ -216,13 +251,13 @@ s.boot;
 };
 
 // Cambiar escala
-~setMajor = { 
-    ~currentScale = ~majorScale; 
+~setMajor = {
+    ~currentScale = ~majorScale;
     "✅ Escala cambiada a mayor".postln;
 };
 
-~setMinor = { 
-    ~currentScale = ~minorScale; 
+~setMinor = {
+    ~currentScale = ~minorScale;
     "✅ Escala cambiada a menor".postln;
 };
 
@@ -277,12 +312,13 @@ s.boot;
 // INICIALIZACIÓN
 // ====================================================================
 
-// Mostrar mensaje de confirmación
-"".postln;
-"🎵 SC Score Visualizer configurado correctamente! 🎵".postln;
-"".postln;
-"📋 Ejecuta ~showHelp.value para ver todos los comandos disponibles".postln;
-"🔍 Ejecuta ~testConnection.value para probar la conexión".postln;
-"".postln;
-"🚀 ¡Listo para live coding!".postln;
-"".postln;
+// Mostrar menú al cargar
+//~menuEjemplos.value; // <-- Esta línea no está definida en este archivo, ¿quizás en otro?
+
+"📝 Ejemplos de live coding cargados. Ejecuta ~menuEjemplos.value para ver la lista.".postln;
+~sendNote.value(440.0, 0.5, 1.0); // Envío de nota al iniciar
+
+~visualizer.sendMsg("/test", "SuperCollider está enviando!");
+"Mensaje de prueba enviado desde SC".postln;
+
+~testConnection.value // <-- Esta línea no está definida en este archivo, ¿quizás en otro?

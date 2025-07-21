@@ -2,6 +2,7 @@
 use crate::config::AppConfig;
 use std::error::Error;
 use std::fmt;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct GuiError {
@@ -24,19 +25,28 @@ impl GuiError {
     }
 }
 
-/// Función principal para ejecutar la GUI
-pub fn run_gui() -> Result<(), GuiError> {
-    log::info!("Iniciando SC Score Visualizer GUI v2.0...");
-    
+fn print_welcome() {
     println!("🎨 SC Score Visualizer GUI v2.0");
     println!("═══════════════════════════════════════");
     println!("Esta es una interfaz de control básica.");
     println!("Para el visualizador completo, ejecute:");
     println!("  cargo run --bin sc_score_visualizer");
     println!("═══════════════════════════════════════");
-    
-    // Cargar y mostrar configuración
+}
+
+/// Función principal para ejecutar la GUI
+pub fn run_gui() -> Result<(), GuiError> {
+    log::info!("Iniciando SC Score Visualizer GUI v2.0...");
+
+    print_welcome();
+
+    let using_default = !Path::new("config.toml").exists();
     let config = AppConfig::load_or_default("config.toml");
+
+    if using_default {
+        println!("⚠️  No se encontró 'config.toml'. Usando configuración por defecto.");
+    }
+
     match config.validate() {
         Ok(_) => {
             println!("✅ Configuración cargada correctamente");
@@ -48,15 +58,30 @@ pub fn run_gui() -> Result<(), GuiError> {
             return Err(GuiError::new(&format!("Error en configuración: {}", e)));
         }
     }
-    
-    println!("\n🎯 Presione Enter para continuar o Ctrl+C para salir...");
+
+    println!("\n¿Desea iniciar el visualizador ahora? (s/N)");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).map_err(|e| {
         GuiError::new(&format!("Error leyendo entrada: {}", e))
     })?;
-    
+
+    if input.trim().to_lowercase() == "s" {
+        println!("🚀 Iniciando visualizador...");
+        std::process::Command::new("cargo")
+            .args(&["run", "--bin", "sc_score_visualizer"])
+            .spawn()
+            .map_err(|e| GuiError::new(&format!("Error lanzando visualizador: {}", e)))?;
+        return Ok(());
+    }
+
+    println!("\n🎯 Presione Enter para continuar o Ctrl+C para salir...");
+    input.clear();
+    std::io::stdin().read_line(&mut input).map_err(|e| {
+        GuiError::new(&format!("Error leyendo entrada: {}", e))
+    })?;
+
     println!("✅ GUI básica ejecutada correctamente.");
     println!("💡 Para futuras versiones se implementará una GUI completa con egui/iced.");
-    
+
     Ok(())
 }

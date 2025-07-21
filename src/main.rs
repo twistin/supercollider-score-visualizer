@@ -1,174 +1,192 @@
-// src/main.rs - SC Score Visualizer - Punto de entrada principal
+pub mod model;
+pub mod config;
+pub mod events;
+pub mod visual;
+pub mod osc_server;
+pub mod logging;
+pub mod midi;
+pub mod errors;
 
 use nannou::prelude::*;
 use nannou::event::{Event, Key, WindowEvent::KeyPressed};
+use clap::Parser;
+use crate::osc_server::OscServer;
+use crate::model::Model;
+use crate::model::DisplayMode;
+use crate::errors::VisualizerError; // Asegúrate de importar VisualizerError
 
-// Módulos principales refactorizados
-mod model;
-mod audio;
-mod visual;
-mod logging;
-mod errors;
-mod config;
-mod osc_server;
-mod midi;
-mod capture;
-mod visuals;
-// Importaciones principales
-use audio::process_osc_messages_robust;
-use model::Model;
-use visuals::draw_visualization;
-use config::AppConfig;
-use osc_server::OscServer;
+#[derive(Parser)]
+#[command(name = "SC Score Visualizer")]
+struct CliArgs {
+    #[arg(long, help = "Activar modo debug detallado")]
+    debug: bool,
+}
 
 /// Función principal - punto de entrada de la aplicación
 fn main() {
+    let args = CliArgs::parse();
+    if args.debug {
+        println!("🛠️  Modo debug activado por argumento");
+    }
+
+    println!("Logger inicializado y funcionando.");
     println!("🚀 Iniciando SC Score Visualizer v2.0");
     
-    // Cargar configuración
-    println!("🔧 Cargando configuración...");
-    let config = AppConfig::load_or_default("config.toml");
-    
-    // Validar configuración
-    if let Err(e) = config.validate() {
-        eprintln!("❌ Error en configuración: {}", e);
-        std::process::exit(1);
-    }
-    
-    println!("✅ Configuración cargada y validada");
-    
-    // Crear y ejecutar aplicación Nannou
     nannou::app(model_setup)
         .update(update)
         .event(event)
+        .view(view) // <--- ¡AÑADE ESTA LÍNEA AQUÍ!
         .run();
-}
-
-/// Variable global para la configuración (simplificación temporal)
-static mut GLOBAL_CONFIG: Option<AppConfig> = None;
-
-/// Obtiene la configuración global de forma segura
-fn get_config() -> AppConfig {
-    unsafe {
-        GLOBAL_CONFIG.clone().unwrap_or_else(|| {
-            let config = AppConfig::load_or_default("config.toml");
-            GLOBAL_CONFIG = Some(config.clone());
-            config
-        })
-    }
 }
 
 /// Configuración inicial del modelo y ventana
 fn model_setup(app: &App) -> Model {
-    let config = get_config();
-    
+    println!("DEBUG: model_setup ha sido llamado.");
     println!("🔧 Configurando ventana principal...");
     
-    // Configurar ventana principal usando configuración externa
-    let window_result = app.new_window()
-        .size(config.window.width, config.window.height)
-        .title(&config.window.title)
-        .view(view)
-        .resizable(config.window.resizable)
-        .build();
-
-    match window_result {
-        Ok(_) => println!("✅ Ventana creada exitosamente ({}x{})", 
-                         config.window.width, config.window.height),
-        Err(e) => {
-            eprintln!("❌ Error creando ventana: {}", e);
-            std::process::exit(1);
-        }
-    };
-
-    println!("📡 Iniciando servidor OSC robusto...");
+    println!("🔧 Cargando configuración...");
+    let mut config = crate::config::AppConfig::load().expect("Error al cargar configuración");
+    println!("✅ Configuración cargada y validada");
     
-    // Crear servidor OSC robusto
-    let osc_server = match OscServer::new(config.osc.clone()) {
-        Ok(server) => {
-            println!("✅ Servidor OSC iniciado exitosamente");
-            server.self_test();
-            server
+    // --- Lógica de inicialización del servidor OSC más robusta ---
+    let (osc_server_instance, osc_rx_for_events) = {
+        let initial_config_port = config.osc.listen_port; // Puerto inicial de config.toml
+        let mut osc_server_result = Err(VisualizerError::OscConnectionError { message: "Initial attempt".to_string() });
+        let max_attempts = 10; // Aumentamos el número máximo de puertos a intentar
+
+        // Definir una lista de puertos a intentar, priorizando el de la config
+        let mut ports_to_try: Vec<u16> = vec![initial_config_port];
+        // Añadir puertos alternativos comunes y algunos muy altos para mayor probabilidad de éxito
+        if initial_config_port != 57120 { ports_to_try.push(57120); } // Puerto por defecto de SuperCollider
+        if initial_config_port != 7771 { ports_to_try.push(7771); } // Puerto que usaste en SC
+        if initial_config_port != 7773 { ports_to_try.push(7773); } // Tu fallback anterior
+        if initial_config_port != 60000 { ports_to_try.push(60000); } // Puerto alto sugerido
+        ports_to_try.push(57123); // Otro puerto común OSC
+        ports_to_try.push(57124); // Otro puerto común OSC
+        ports_to_try.push(8000);  // Puerto común para desarrollo
+        ports_to_try.push(8080);  // Otro puerto común para desarrollo
+        ports_to_try.push(49152); // Inicio del rango de puertos efímeros (a veces usados por macOS)
+        ports_to_try.push(49153);
+        ports_to_try.push(49154);
+        ports_to_try.push(50000); // Un puerto alto aleatorio
+        ports_to_try.push(50001);
+        ports_to_try.push(50002);
+        ports_to_try.push(50003);
+        ports_to_try.push(50004);
+        ports_to_try.push(50005);
+        ports_to_try.push(50006);
+        ports_to_try.push(50007);
+        ports_to_try.push(50008);
+        ports_to_try.push(50009);
+        ports_to_try.push(50010);
+
+
+        // Eliminar duplicados y asegurar que el puerto inicial esté al principio
+        ports_to_try.sort_unstable();
+        ports_to_try.dedup();
+        
+        // Asegurarse de que el puerto configurado inicialmente sea el primero en la lista
+        if let Some(pos) = ports_to_try.iter().position(|&p| p == initial_config_port) {
+            let initial_port_val = ports_to_try.remove(pos);
+            ports_to_try.insert(0, initial_port_val);
         }
-        Err(e) => {
-            eprintln!("❌ Error iniciando servidor OSC: {}", e);
-            std::process::exit(1);
+
+        for (attempt_num, &port) in ports_to_try.iter().take(max_attempts).enumerate() {
+            let mut temp_osc_config = config.osc.clone();
+            temp_osc_config.listen_port = port;
+
+            println!("📡 Intento {}/{} - Iniciando canal de comunicación OSC en puerto {}...", attempt_num + 1, max_attempts, port);
+            osc_server_result = OscServer::new(temp_osc_config, config.audio.clone());
+
+            match &osc_server_result {
+                Ok(_) => {
+                    println!("✅ Servidor OSC iniciado exitosamente en puerto: {}", port);
+                    config.osc.listen_port = port; // Actualiza la config con el puerto exitoso
+                    break; // Éxito, salir del bucle
+                },
+                Err(e) => {
+                    if e.to_string().contains("Address already in use") {
+                        println!("⚠️  Puerto {} ocupado. Intentando con el siguiente...", port);
+                        std::thread::sleep(std::time::Duration::from_millis(100)); // Pequeña pausa
+                    } else {
+                        eprintln!("❌ Error inesperado al iniciar OSC en puerto {}: {}", port, e);
+                        // Para otros errores, podríamos querer salir inmediatamente o loguear más detalles
+                    }
+                }
+            }
+        }
+
+        // Después del bucle, verificar si tuvimos éxito
+        match osc_server_result {
+            Ok((server, rx)) => (server, rx),
+            Err(e) => {
+                eprintln!("❌ Error fatal: No se pudo iniciar el servidor OSC después de {} intentos. Último error: {}", max_attempts, e);
+                eprintln!("Por favor, asegúrate de que no haya otras aplicaciones usando los puertos de red.");
+                eprintln!("Puedes intentar reiniciar tu sistema para liberar todos los puertos.");
+                std::process::exit(1);
+            }
         }
     };
+    // --- Fin de la lógica de inicialización del servidor OSC robusta ---
+
+    println!("✅ Receptor OSC de eventos musicales iniciado.");
 
     println!("📊 Inicializando modelo de datos...");
-    let mut model = Model::new_with_config(osc_server, config.clone());
-    
-    // Inicializar MIDI si está habilitado
-    model.init_midi();
-    
-    println!("🚀 SC Score Visualizer iniciado exitosamente");
-    println!("🎨 Configuración: {} | {} | Debug: {}", 
-           model.config.visual.quality,
-           model.config.visual.background_style,
-           model.config.visual.show_debug);
+    let musical_rx = std::sync::mpsc::Receiver::from(osc_rx_for_events);
+    let rx = crate::osc_server::map_processed_to_musical(musical_rx);
+    let model = Model::new(app, config.clone(), rx, osc_server_instance)
+        .expect("No se pudo crear el modelo");
 
+    println!("✅ Modelo de datos inicializado."); // Nuevo mensaje de depuración
     model
 }
 
 /// Bucle de actualización principal
-fn update(app: &App, model: &mut Model, update: Update) {
-    // Actualizar tiempo transcurrido en el modelo y shader manager
-    model.update_time(app.elapsed_frames() as f32 / 60.0); // Asumiendo 60 FPS
+fn update(_app: &App, model: &mut Model, _update: Update) {
+    model.update(); // El método update del modelo ahora maneja la lógica principal
     
-    // Procesar mensajes OSC entrantes con el nuevo sistema robusto
-    process_osc_messages_robust(model, app);
-    
-    // Procesar mensajes MIDI si está habilitado
-    let win = app.window_rect();
-    model.process_midi_messages(win);
+    model.frame_counter += 1;
+    let frame = model.frame_counter;
 
-    // Actualizar ciclo de vida de eventos
-    let delta_time = update.since_last.as_secs_f32();
-    model.update_events(delta_time);
+    if model.config.logging.show_performance_stats && 
+       frame % model.config.logging.stats_interval_frames as u64 == 0 {
+        let osc_stats = model.osc_server.get_stats();
+        println!("⚡ Frame {}: {} eventos activos | {} notas visuales | OSC: {:.1} msg/s | Conectado: {}", 
+               frame, 
+               model.musical_events.len(), // Usar musical_events
+               model.visual_notes.len(),
+               osc_stats.messages_per_second,
+               osc_stats.is_connected);
+    }
     
-    // Actualizar notas visuales avanzadas
-    model.update_visual_notes(delta_time, win);
-
-    // Log de rendimiento según configuración
-    static mut FRAME_COUNTER: u64 = 0;
-    unsafe {
-        FRAME_COUNTER += 1;
+    if frame % model.config.performance.cleanup_interval_frames as u64 == 0 {
+        let before_musical_count = model.musical_events.len();
+        let before_visual_count = model.visual_notes.len();
+        model.cleanup_expired_events();
+        let after_musical_count = model.musical_events.len();
+        let after_visual_count = model.visual_notes.len();
         
-        if model.config.logging.show_performance_stats && 
-           FRAME_COUNTER % model.config.logging.stats_interval_frames as u64 == 0 {
-            let osc_stats = model.osc_server.get_stats();
-            println!("⚡ Frame {}: {} eventos activos | {} notas visuales | OSC: {:.1} msg/s | Conectado: {}", 
-                   FRAME_COUNTER, 
-                   model.notes.len() + model.drone_events.len(),
-                   model.visual_notes.len(),
-                   osc_stats.messages_per_second,
-                   osc_stats.is_connected);
-        }
-        
-        // Limpieza automática de eventos expirados
-        if FRAME_COUNTER % model.config.performance.cleanup_interval_frames as u64 == 0 {
-            let before_count = model.notes.len() + model.drone_events.len();
-            let before_visual_count = model.visual_notes.len();
-            model.cleanup_expired_events();
-            let after_count = model.notes.len() + model.drone_events.len();
-            let after_visual_count = model.visual_notes.len();
-            
-            if before_count != after_count || before_visual_count != after_visual_count {
-                println!("🧹 Limpieza automática: {} -> {} eventos legacy | {} -> {} notas visuales", 
-                       before_count, after_count, before_visual_count, after_visual_count);
-            }
+        if before_musical_count != after_musical_count || before_visual_count != after_visual_count {
+            println!("🧹 Limpieza automática: {} -> {} eventos musicales | {} -> {} notas visuales", 
+                   before_musical_count, after_musical_count, before_visual_count, after_visual_count);
         }
     }
 }
 
 /// Función de renderizado
-fn view(app: &App, model: &Model, frame: Frame) {
-    draw_visualization(app, model, frame);
+
+fn view(app: &App, _model: &Model, frame: Frame) {
+    let draw = app.draw();
+    // Simplemente dibuja un color de fondo.
+    draw.background().color(nannou::prelude::PLUM);
+    draw.to_frame(app, &frame).unwrap();
+
+    // Añade un log para confirmar que se está ejecutando
+    println!("-> Frame dibujado en view()");
 }
 
 /// **Función de manejo de eventos (teclado, mouse, etc.)**
-fn event(app: &App, model: &mut Model, event: Event) {
+fn event(_app: &App, model: &mut Model, event: Event) {
     match event {
         Event::WindowEvent { simple: Some(window_event), .. } => {
             match window_event {
@@ -185,13 +203,11 @@ fn event(app: &App, model: &mut Model, event: Event) {
 /// **Maneja eventos de teclado**
 fn handle_key_pressed(model: &mut Model, key: Key) {
     match key {
-        // **S - Alternar modo de scroll**
         Key::S => {
             model.toggle_scroll_mode();
             println!("🔄 Modo de scroll cambiado a: {:?}", model.get_scroll_mode());
         }
         
-        // **Flecha Izquierda/Derecha - Ajustar velocidad de scroll**
         Key::Left => {
             let new_speed = (model.get_scroll_speed() - 20.0).max(0.0);
             model.set_scroll_speed(new_speed);
@@ -203,79 +219,80 @@ fn handle_key_pressed(model: &mut Model, key: Key) {
             println!("➡️  Velocidad de scroll: {:.0} px/s", new_speed);
         }
         
-        // **M - Alternar modo visual (Fixed/Scrolling)**
         Key::M => {
-            model.toggle_scroll_mode();
-            let mode_name = match model.get_scroll_mode() {
-                model::ScrollMode::Fixed => "FIJO",
-                model::ScrollMode::Scrolling => "SCROLL",
-            };
-            println!("🎭 Modo visual cambiado a: {} (Speed: {:.0} px/s)", 
-                   mode_name, model.get_scroll_speed());
+            let next_mode = cycle_display_mode(&model.display_mode);
+            model.set_display_mode(next_mode.clone());
+            println!("🎭 Modo de display cambiado a: {:?}", next_mode);
         }
         
-        // **Números 1-5 - Cambiar modo de display**
         Key::Key1 => {
-            model.set_display_mode(model::DisplayMode::Events);
+            model.set_display_mode(DisplayMode::Events);
             println!("🎵 Modo: Solo Eventos");
         }
         Key::Key2 => {
-            model.set_display_mode(model::DisplayMode::Analysis);
+            model.set_display_mode(DisplayMode::Analysis);
             println!("📊 Modo: Solo Análisis");
         }
         Key::Key3 => {
-            model.set_display_mode(model::DisplayMode::Drones);
+            model.set_display_mode(DisplayMode::Drones);
             println!("🎛️ Modo: Solo Drones");
         }
         Key::Key4 => {
-            model.set_display_mode(model::DisplayMode::Cluster);
+            model.set_display_mode(DisplayMode::Cluster);
             println!("🌌 Modo: Solo Cluster");
         }
         Key::Key5 => {
-            model.set_display_mode(model::DisplayMode::Combined);
+            model.set_display_mode(DisplayMode::Combined);
             println!("🔄 Modo: Combinado");
         }
         
-        // **C - Limpiar eventos**
         Key::C => {
             model.clear_events();
             model.clear_visual_notes();
             println!("🧹 Eventos limpiados");
         }
         
-        // **D - Alternar debug info**
         Key::D => {
-            let show_debug = !model.display_config.show_debug;
-            model.set_display_config(show_debug, model.display_config.show_grid);
+            let show_debug = !model.display_config().visual.show_debug;
+            model.set_display_config(show_debug, model.display_config().visual.show_grid);
             println!("🐛 Debug info: {}", if show_debug { "ON" } else { "OFF" });
         }
         
-        // **G - Alternar grid**
         Key::G => {
-            let show_grid = !model.display_config.show_grid;
-            model.set_display_config(model.display_config.show_debug, show_grid);
+            let show_grid = !model.display_config().visual.show_grid;
+            model.set_display_config(model.display_config().visual.show_debug, show_grid);
             println!("📐 Grid: {}", if show_grid { "ON" } else { "OFF" });
         }
         
-        // **Espacio - Información de ayuda**
-        Key::Space => {
-            print_help();
+        Key::H => {
+            println!("\n🎹 === CONTROLES DE TECLADO ===");
+            println!("S          - Alternar modo scroll (Fijo/Scrolling)");
+            println!("← →        - Ajustar velocidad de scroll");
+            println!("M          - Cambiar modo de display (Eventos/Análisis/Drones/Cluster/Combinado)");
+            println!("1-5        - Cambiar modo de display (alternativo)");
+            println!("C          - Limpiar eventos");
+            println!("D          - Alternar debug info");
+            println!("G          - Alternar grid");
+            println!("H          - Mostrar esta ayuda");
+            println!("ESC        - Salir de la aplicación");
+            println!("===============================\n");
         }
         
-        _ => {} // Ignorar otras teclas
+        Key::Escape => {
+            println!("👋 Cerrando visualizador...");
+            std::process::exit(0);
+        }
+        
+        _ => {}
     }
 }
 
-/// **Muestra la ayuda de controles de teclado**
-fn print_help() {
-    println!("\n🎹 === CONTROLES DE TECLADO ===");
-    println!("S          - Alternar modo scroll (Fijo/Scrolling)");
-    println!("M          - Alternar modo visual (Fijo/Scroll)");
-    println!("← →        - Ajustar velocidad de scroll");
-    println!("1-5        - Cambiar modo de display");
-    println!("C          - Limpiar eventos");
-    println!("D          - Alternar debug info");
-    println!("G          - Alternar grid");
-    println!("ESPACIO    - Mostrar esta ayuda");
-    println!("===============================\n");
+fn cycle_display_mode(current: &DisplayMode) -> DisplayMode {
+    match current {
+        DisplayMode::Events => DisplayMode::Analysis,
+        DisplayMode::Analysis => DisplayMode::Drones,
+        DisplayMode::Drones => DisplayMode::Cluster,
+        DisplayMode::Cluster => DisplayMode::Combined,
+        DisplayMode::Combined => DisplayMode::Events,
+    }
 }
