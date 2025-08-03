@@ -244,13 +244,13 @@ A continuación se muestran capturas de pantalla de los ejemplos definidos en `s
 
 Este ejemplo envía una serie de notas individuales con frecuencia, amplitud y duración aleatorias. Es ideal para probar la respuesta básica del visualizador.
 
-![Ejemplo 1](public/Ejemplo 1.png)
+![Ejemplo 1](public/ejem1.png)
 
 ### Ejemplo 5: Drones y Notas Combinadas
 
 Este ejemplo más complejo combina drones (sonidos largos y sostenidos) con secuencias de notas cortas. Permite observar cómo el visualizador gestiona eventos de diferente duración y naturaleza simultáneamente.
 
-![Ejemplo 5](public/Ejemplo 5.png)
+![Ejemplo 5](public/ejem5.png)
 
 ## 🔧 Desarrollo
 
