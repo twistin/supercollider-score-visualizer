@@ -196,6 +196,11 @@ pub trait ResultExt<T> {
     fn with_audio_context(self, message: impl Into<String>) -> VisualizerResult<T>;
     fn with_config_context(self, message: impl Into<String>) -> VisualizerResult<T>;
     fn with_init_context(self, message: impl Into<String>) -> VisualizerResult<T>;
+    fn with_state_context(self, message: impl Into<String>) -> VisualizerResult<T>;
+    fn with_export_context(self, format: impl Into<String>, message: impl Into<String>) -> VisualizerResult<T>;
+    fn with_window_context(self, message: impl Into<String>) -> VisualizerResult<T>;
+    fn with_sync_context(self, message: impl Into<String>) -> VisualizerResult<T>;
+    fn with_event_parsing_context(self, event_type: impl Into<String>, message: impl Into<String>) -> VisualizerResult<T>;
 }
 
 impl<T, E> ResultExt<T> for Result<T, E> 
@@ -228,6 +233,40 @@ where
         self.map_err(|e| VisualizerError::Initialization {
             message: message.into(),
             source: Some(Box::new(e)),
+        })
+    }
+
+    fn with_state_context(self, message: impl Into<String>) -> VisualizerResult<T> {
+        self.map_err(|_| VisualizerError::State {
+            message: message.into(),
+        })
+    }
+
+    fn with_export_context(self, format: impl Into<String>, message: impl Into<String>) -> VisualizerResult<T> {
+        self.map_err(|e| VisualizerError::Export {
+            format: format.into(),
+            message: message.into(),
+            source: Some(Box::new(e)),
+        })
+    }
+
+    fn with_window_context(self, message: impl Into<String>) -> VisualizerResult<T> {
+        self.map_err(|e| VisualizerError::Window {
+            message: message.into(),
+            source: Some(Box::new(e)),
+        })
+    }
+
+    fn with_sync_context(self, message: impl Into<String>) -> VisualizerResult<T> {
+        self.map_err(|_| VisualizerError::Sync {
+            message: message.into(),
+        })
+    }
+
+    fn with_event_parsing_context(self, event_type: impl Into<String>, message: impl Into<String>) -> VisualizerResult<T> {
+        self.map_err(|_| VisualizerError::EventParsing {
+            event_type: event_type.into(),
+            message: message.into(),
         })
     }
 }

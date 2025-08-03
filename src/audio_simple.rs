@@ -4,7 +4,8 @@ use nannou::prelude::*;
 use nannou_osc as osc;
 use crate::model::Model;
 
-/// Procesa todos los mensajes OSC recibidos y actualiza el modelo
+/// Procesa todos los mensajes OSC recibidos durante un frame y actualiza el modelo en consecuencia.
+/// Registra logs si está activado `verbose_osc_logging` en la configuración.
 pub fn process_osc_messages(model: &mut Model, app: &App) {
     // Recopilar todos los mensajes para evitar problemas de borrowing
     let mut messages = Vec::new();
@@ -38,7 +39,7 @@ pub fn process_osc_messages(model: &mut Model, app: &App) {
     }
 }
 
-/// Maneja un mensaje OSC individual
+/// Encaminador de mensajes OSC entrantes según su dirección. Llama a funciones especializadas según tipo.
 fn handle_osc_message(model: &mut Model, msg: &osc::Message, app: &App) {
     let args = &msg.args;
     
@@ -90,7 +91,8 @@ fn handle_osc_message(model: &mut Model, msg: &osc::Message, app: &App) {
     }
 }
 
-/// Maneja eventos musicales (/event y /note)
+/// Maneja mensajes OSC del tipo `/note` o `/event`.
+/// Realiza parsing, validación y actualización del modelo.
 fn handle_event_message(model: &mut Model, args: &[osc::Type], app: &App, source: &str) {
     if args.len() >= 4 {
         let event_type = match args[0].clone().string() {
@@ -148,7 +150,8 @@ fn handle_event_message(model: &mut Model, args: &[osc::Type], app: &App, source
     }
 }
 
-/// Maneja datos de análisis continuo (/analysis)
+/// Maneja mensajes OSC del tipo `/analysis`.
+/// Realiza parsing, validación y actualización del modelo.
 fn handle_analysis_message(model: &mut Model, args: &[osc::Type]) {
     if args.len() >= 3 {
         let amp = match args[0].clone().float() {
@@ -191,7 +194,8 @@ fn handle_analysis_message(model: &mut Model, args: &[osc::Type]) {
     }
 }
 
-/// Maneja eventos de drone (/drone)
+/// Maneja mensajes OSC del tipo `/drone`.
+/// Realiza parsing, validación y actualización del modelo.
 fn handle_drone_message(model: &mut Model, args: &[osc::Type]) {
     if args.len() >= 2 {
         let freq = match args[0].clone().float() {
@@ -230,7 +234,8 @@ fn handle_drone_message(model: &mut Model, args: &[osc::Type]) {
     }
 }
 
-/// Maneja cluster de datos (/cluster)
+/// Maneja mensajes OSC del tipo `/cluster`.
+/// Realiza parsing, validación y actualización del modelo.
 fn handle_cluster_message(model: &mut Model, args: &[osc::Type]) {
     if args.len() >= 3 {
         let freq = match args[0].clone().float() {
@@ -279,7 +284,8 @@ fn handle_cluster_message(model: &mut Model, args: &[osc::Type]) {
     }
 }
 
-/// Maneja comando de limpieza (/clear)
+/// Maneja mensajes OSC del tipo `/clear`.
+/// Realiza parsing, validación y actualización del modelo.
 fn handle_clear_message(model: &mut Model) {
     if model.config.verbose_osc_logging {
         println!("🧹 Sistema: Limpiando todos los eventos");

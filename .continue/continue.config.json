@@ -1,0 +1,12 @@
+{
+  "models": [
+    {
+      "title": "Qwen3 (Ollama)",
+      "provider": "openai",
+      "model": "qwen3:8b",
+      "apiKey": "ollama",
+      "baseUrl": "http://localhost:11434"
+    }
+  ],
+  "defaultModel": "Qwen3 (Ollama)"
+}

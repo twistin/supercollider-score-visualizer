@@ -1,5 +1,14 @@
 // src/midi.rs
 
+//! 🎹 Módulo de entrada MIDI para SC Score Visualizer
+//!
+//! Este módulo gestiona la conexión MIDI utilizando la biblioteca `midir`.
+//! Si está activado en la configuración (`MidiConfig`), busca un puerto específico
+//! y se conecta a él, registrando los mensajes recibidos.
+//!
+//! Las funcionalidades futuras incluyen el reenvío de datos MIDI mediante canales
+//! MPSC para sincronizar entrada MIDI con visualizaciones y configuración dinámica.
+
 use crate::config::MidiConfig;
 use crate::errors::{VisualizerError, VisualizerResult};
 use crate::logging::Logger;
@@ -24,7 +33,7 @@ impl MidiController {
     pub fn new(config: &MidiConfig) -> VisualizerResult<Self> {
         let midi_in = MidiInput::new("nannou-midi-input")
             .map_err(|e| VisualizerError::MidiError {
-                message: format!("Error al crear MidiInput: {}", e),
+                message: format!("Error al crear MidiInput: {e}"),
             })?;
 
         let conn_in = if config.enabled {
@@ -34,7 +43,7 @@ impl MidiController {
             let maybe_port = available_ports.iter().find(|p| {
                 midi_in
                     .port_name(p)
-                    .map_or(false, |name| name == *port_name)
+                    .is_ok_and(|name| name == *port_name)
             });
 
             if let Some(port) = maybe_port {
@@ -51,13 +60,12 @@ impl MidiController {
                         (),
                     )
                     .map_err(|e| VisualizerError::MidiError {
-                        message: format!("Error conectando MIDI: {}", e),
+                        message: format!("Error conectando MIDI: {e}"),
                     })?;
                 Some(conn)
             } else {
                 Logger::log_warn(&format!(
-                    "⚠️ Puerto MIDI '{}' no encontrado. MIDI deshabilitado.",
-                    port_name
+                    "⚠️ Puerto MIDI '{port_name}' no encontrado. MIDI deshabilitado."
                 ));
                 None
             }
@@ -72,18 +80,22 @@ impl MidiController {
         })
     }
 
+    /// Callback ejecutado al recibir un mensaje MIDI.
+    /// Actualmente solo registra el contenido del mensaje, pero en el futuro
+    /// debería enviar eventos a un canal MPSC para ser procesados en el hilo principal.
     fn midi_callback(_timestamp: u64, message: &[u8], _data: &mut ()) {
-        Logger::log_debug(&format!("🎵 MIDI recibido: {:?}", message));
-        // Aquí deberías enviar el mensaje a un canal MPSC si quieres procesarlo en el hilo principal
+        Logger::log_debug(&format!("🎵 MIDI recibido: {message:?}"));
     }
 
+    /// Procesa eventos MIDI recibidos si se implementa un canal MPSC.
+    /// Actualmente es un placeholder.
     pub fn handle_midi_events(
         &mut self,
         _config: &mut crate::config::AppConfig,
         _scroll_mode: &mut crate::model::ScrollMode,
         _display_mode: &mut crate::model::DisplayMode,
     ) {
-        // Placeholder: procesamiento de mensajes MIDI, si usas un canal MPSC
+        // Placeholder
     }
 
     fn midi_to_hz(midi_note: f32) -> f32 {

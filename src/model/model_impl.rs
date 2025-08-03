@@ -1,46 +1,97 @@
 use super::{DisplayMode, AppConfig};
+use std::sync::{mpsc::Receiver, Arc, Mutex};
+use crate::osc_server::OscServer;
+use crate::events::ProcessedOscMessage;
 
 impl Model {
-    pub fn new(
-        app: &nannou::App,
+    pub fn new_with_receiver(
         config: AppConfig,
-        _osc_event_rx: impl Iterator<Item=crate::events::MusicalEvent> + Send + 'static,
-        osc_server: std::sync::Arc<std::sync::Mutex<crate::osc_server::OscServer>>,
-    ) -> Result<Self, crate::errors::VisualizerError> {
+        osc_rx: Receiver<ProcessedOscMessage>,
+        osc_server_handle: Arc<Mutex<OscServer>>,
+    ) -> Self {
         use crate::visual::shader_manager::ShaderManager;
-        use crate::visual::VisualNote;
-        use crate::events::MusicalEvent;
         use crate::osc_server::OscServerStats;
-        use crate::midi::MidiController;
         use std::collections::HashMap;
         use std::time::Instant;
 
-        Ok(Self {
-            config,
+        Self {
+            config: config.clone(),
             shader_manager: ShaderManager::dummy(),
             visual_notes: Vec::new(),
             musical_events: Vec::new(),
-            start_time: Instant::now(),
-            elapsed_time: 0.0,
-            osc_server: std::sync::Arc::try_unwrap(osc_server)
-                .ok()
-                .map(|m| m.into_inner().unwrap())
-                .unwrap(),
+            time_info: crate::model::TimeInfo {
+                start_time: Instant::now(),
+                last_update_time: Instant::now(),
+                elapsed_time: 0.0,
+                frame_counter: 0,
+            },
+            osc_rx,
+            osc_server_handle,
             osc_stats: OscServerStats::default(),
             midi_controller: None,
             active_notes: HashMap::new(),
             scroll_mode: super::ScrollMode::Continuous,
             display_mode: super::DisplayMode::Events,
             current_analysis_data: (0.0, 0.0, 0.0),
-            frame_counter: 0,
             scroll_speed: 100.0,
             notes: Vec::new(),
             drone_events: Vec::new(),
-            last_update_time: Instant::now(),
             current_realtime_data: None,
-        })
+            audio_visual_mapping: crate::visual::audio_visual_mapping::AirportVisualMapper::new(
+                config.airport_visual.clone(),
+            ),
+        }
     }
-    pub fn update(&mut self) {}
+    pub fn update(&mut self) {
+        // Consumir todos los eventos OSC recibidos y agregarlos al vector musical_events
+        loop {
+            match self.osc_rx.try_recv() {
+                Ok(processed_msg) => {
+                    let event_opt = match processed_msg.addr.as_str() {
+                        "/note_on" => {
+                            if processed_msg.args.len() == 3 {
+                                let freq = match &processed_msg.args[0] {
+                                    nannou_osc::Type::Float(f) => *f,
+                                    nannou_osc::Type::Int(i) => *i as f32,
+                                    _ => { crate::logging::Logger::log_warn("Argumento de frecuencia inválido para /note_on"); return; },
+                                };
+                                let amp = match &processed_msg.args[1] {
+                                    nannou_osc::Type::Float(f) => *f,
+                                    nannou_osc::Type::Int(i) => *i as f32,
+                                    _ => { crate::logging::Logger::log_warn("Argumento de amplitud inválido para /note_on"); return; },
+                                };
+                                let dur = match &processed_msg.args[2] {
+                                    nannou_osc::Type::Float(f) => *f,
+                                    nannou_osc::Type::Int(i) => *i as f32,
+                                    _ => { crate::logging::Logger::log_warn("Argumento de duración inválido para /note_on"); return; },
+                                };
+                                Some(crate::events::MusicalEvent::Note {
+                                    frequency: freq,
+                                    amplitude: amp,
+                                    duration: dur,
+                                    instrument: "default".to_string(),
+                                    start_time: processed_msg.timestamp,
+                                })
+                            } else {
+                                crate::logging::Logger::log_warn(&format!("Número incorrecto de argumentos para /note_on: esperado 3, recibido {}", processed_msg.args.len()));
+                                None
+                            }
+                        }
+                        // Puedes añadir más mapeos aquí para /drone_on, /cluster, etc.
+                        _ => None
+                    };
+                    if let Some(event) = event_opt {
+                        self.musical_events.push(event);
+                    }
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    crate::logging::Logger::log_error("Canal OSC desconectado");
+                    break;
+                }
+            }
+        }
+    }
     pub fn cleanup_expired_events(&mut self) {}
     pub fn toggle_scroll_mode(&mut self) {}
     pub fn get_scroll_mode(&self) -> super::ScrollMode { self.scroll_mode }

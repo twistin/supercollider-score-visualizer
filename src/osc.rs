@@ -1,12 +1,20 @@
 
+//! 🎛️ Módulo de conexión OSC
+//!
+//! Este archivo lanza un hilo que escucha paquetes OSC en el puerto especificado
+//! y reenvía los mensajes procesados por un canal MPSC para su interpretación visual.
+
 use nannou_osc as osc;
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 use std::thread;
 use crate::config::{OscConfig, AudioConfig};
 use crate::errors::{VisualizerError, VisualizerResult};
 use crate::logging::Logger;
 use crate::events::{MusicalEvent, RealtimeData};
+
+/// Tamaño del búfer para los paquetes OSC entrantes.
+const OSC_BUFFER_SIZE: usize = 4096;
 
 /// Estructura para mensajes OSC procesados, útil para el hilo principal.
 #[derive(Debug, Clone)]
@@ -74,7 +82,8 @@ impl OscServer {
         Ok(server)
     }
 
-    /// Inicia el servidor OSC en un hilo separado.
+    /// Inicializa el servidor OSC en un hilo separado.
+    /// Requiere un canal para enviar `ProcessedOscMessage` y la configuración del puerto.
     fn start(&mut self) -> VisualizerResult<()> {
         if self.is_running {
             Logger::log_info("El servidor OSC ya está corriendo.");
@@ -86,17 +95,17 @@ impl OscServer {
         let stats_sender_clone = self.stats_sender.clone();
         let _audio_config_clone = self.audio_config.clone();
 
-        Logger::log_info(&format!("🔧 Preparando para iniciar OscServer en 127.0.0.1:{}", listen_port));
+        Logger::log_info(&format!("🔧 Preparando para iniciar OscServer en 127.0.0.1:{listen_port}"));
 
         thread::spawn(move || {
-            Logger::log_info(&format!("🔧 Iniciando servidor OSC robusto (hilo dedicado + flume bounded)..."));
-            Logger::log_info(&format!("🔧 Configuración: 127.0.0.1:{}", listen_port));
+            Logger::log_info("🔧 Iniciando servidor OSC robusto (hilo dedicado + flume bounded)...");
+            Logger::log_info(&format!("🔧 Configuración: 127.0.0.1:{listen_port}"));
             Logger::log_info(&format!("🔧 Buffer: {} mensajes, timeout: {}ms", 1024, 10));
 
             let receiver = match osc::receiver(listen_port) {
                 Ok(r) => r,
                 Err(e) => {
-                    Logger::log_error(&format!("❌ Error al enlazar el puerto OSC {}: {}", listen_port, e));
+                    Logger::log_error(&format!("❌ Error al enlazar el puerto OSC {listen_port}: {e}"));
                     let mut error_stats = OscServerStats::default();
                     error_stats.is_connected = false;
                     error_stats.failed_messages = 9999;
@@ -105,8 +114,8 @@ impl OscServer {
                 }
             };
 
-            Logger::log_info(&format!("🔧 Servidor OSC iniciado exitosamente (hilo dedicado)"));
-            Logger::log_info(&format!("🔧 Esperando mensajes en 127.0.0.1:{}", listen_port));
+            Logger::log_info("🔧 Servidor OSC iniciado exitosamente (hilo dedicado)");
+            Logger::log_info(&format!("🔧 Esperando mensajes en 127.0.0.1:{listen_port}"));
 
             let mut current_stats = OscServerStats::default();
             let mut last_stats_update = Instant::now();
@@ -128,7 +137,7 @@ impl OscServer {
 
                     // Enviar todos los mensajes procesados al canal para que main.rs los reciba
                     if let Err(e) = sender_clone.send(processed_msg) {
-                        Logger::log_error(&format!("❌ Error al enviar mensaje OSC al hilo principal: {}", e));
+                        Logger::log_error(&format!("❌ Error al enviar mensaje OSC al hilo principal: {e}"));
                         current_stats.failed_messages += 1;
                     } else {
                         current_stats.total_processed += 1;
@@ -139,7 +148,7 @@ impl OscServer {
                     current_stats.messages_per_second = msg_count_since_last_update as f64 / last_stats_update.elapsed().as_secs_f64();
                     current_stats.last_message_time = start_time.elapsed().as_secs_f64();
                     if let Err(e) = stats_sender_clone.send(current_stats.clone()) {
-                        Logger::log_error(&format!("❌ Error al enviar estadísticas OSC: {}", e));
+                        Logger::log_error(&format!("❌ Error al enviar estadísticas OSC: {e}"));
                     }
                     last_stats_update = Instant::now();
                     msg_count_since_last_update = 0;
@@ -190,7 +199,7 @@ impl OscServer {
             if let Ok(Some((packet, _addr))) = receiver.try_recv() {
                 for msg in packet.into_msgs() {
                     if msg.addr == "/test" {
-                        Logger::log_info(&format!("🔧 Auto-test OSC exitoso - Puerto {} accesible", test_port));
+                        Logger::log_info(&format!("🔧 Auto-test OSC exitoso - Puerto {test_port} accesible"));
                         received = true;
                         break;
                     }
@@ -204,7 +213,7 @@ impl OscServer {
             Ok(())
         } else {
             Err(VisualizerError::OscConnectionError {
-                message: format!("Fallo el auto-test: no se recibió el mensaje de prueba en el puerto {}", test_port),
+                message: format!("Fallo el auto-test: no se recibió el mensaje de prueba en el puerto {test_port}"),
             })
         }
     }
@@ -220,18 +229,18 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
         let receiver = match osc::receiver(osc_receiver_port) {
             Ok(r) => r,
             Err(e) => {
-                Logger::log_error(&format!("❌ Error al enlazar el puerto OSC {}: {}", osc_receiver_port, e));
+                Logger::log_error(&format!("❌ Error al enlazar el puerto OSC {osc_receiver_port}: {e}"));
                 return;
             }
         };
-        Logger::log_info(&format!("🔧 Receptor OSC de eventos musicales iniciado en 127.0.0.1:{}", osc_receiver_port));
+        Logger::log_info(&format!("🔧 Receptor OSC de eventos musicales iniciado en 127.0.0.1:{osc_receiver_port}"));
 
         for (packet, _addr) in receiver.iter() {
             for msg in packet.into_msgs() {
                 let event = match msg.addr.as_str() {
                     "/note" | "/note_on" => {
                         if msg.args.len() == 4 { // instrument, freq, amp, dur
-                            if let (Some(osc::Type::String(instrument)), Some(osc::Type::Float(frequency)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(_duration))) = (msg.args.get(0), msg.args.get(1), msg.args.get(2), msg.args.get(3)) {
+                            if let (Some(osc::Type::String(instrument)), Some(osc::Type::Float(frequency)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(_duration))) = (msg.args.first(), msg.args.get(1), msg.args.get(2), msg.args.get(3)) {
                                 Some(MusicalEvent::Note {
                                     frequency: *frequency,
                                     amplitude: *amplitude,
@@ -241,7 +250,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
                                 })
                             } else { None }
                         } else if msg.args.len() == 3 { // freq, amp, dur (instrument default)
-                            if let (Some(osc::Type::Float(frequency)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(_duration))) = (msg.args.get(0), msg.args.get(1), msg.args.get(2)) {
+                            if let (Some(osc::Type::Float(frequency)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(_duration))) = (msg.args.first(), msg.args.get(1), msg.args.get(2)) {
                                 Some(MusicalEvent::Note {
                                     frequency: *frequency,
                                     amplitude: *amplitude,
@@ -277,7 +286,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
                     },
                     "/realtime" => {
                         if msg.args.len() == 3 { // pitch, amplitude, centroid
-                            if let (Some(osc::Type::Float(pitch)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(centroid))) = (msg.args.get(0), msg.args.get(1), msg.args.get(2)) {
+                            if let (Some(osc::Type::Float(pitch)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(centroid))) = (msg.args.first(), msg.args.get(1), msg.args.get(2)) {
                                 Some(MusicalEvent::Realtime(RealtimeData {
                                     pitch: *pitch,
                                     amplitude: *amplitude,
@@ -289,7 +298,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
                     },
                     "/analysis_data" => {
                         if msg.args.len() == 3 { // amp, brightness, noisy
-                            if let (Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(brightness)), Some(osc::Type::Float(noisy))) = (msg.args.get(0), msg.args.get(1), msg.args.get(2)) {
+                            if let (Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(brightness)), Some(osc::Type::Float(noisy))) = (msg.args.first(), msg.args.get(1), msg.args.get(2)) {
                                 Some(MusicalEvent::AnalysisData {
                                     amplitude: *amplitude,
                                     brightness: *brightness,
@@ -299,14 +308,28 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
                         } else { None }
                     },
                     "/cluster" => {
-                        if msg.args.len() == 5 { // center_freq, freq_width, density, amp, dur
-                            if let (Some(osc::Type::Float(center_freq)), Some(osc::Type::Float(freq_width)), Some(osc::Type::Float(density)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(duration))) = (msg.args.get(0), msg.args.get(1), msg.args.get(2), msg.args.get(3), msg.args.get(4)) {
+                        if msg.args.len() == 5 {
+                            // center_freq, freq_width, density, amp, dur
+                            if let (Some(osc::Type::Float(center_freq)), Some(osc::Type::Float(freq_width)), Some(osc::Type::Float(density)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(duration))) = (msg.args.first(), msg.args.get(1), msg.args.get(2), msg.args.get(3), msg.args.get(4)) {
                                 Some(MusicalEvent::Cluster {
                                     center_freq: *center_freq,
                                     freq_width: *freq_width,
                                     density: *density,
                                     amplitude: *amplitude,
                                     duration: *duration,
+                                    start_time: std::time::Instant::now(),
+                                })
+                            } else { None }
+                        } else if msg.args.len() == 4 {
+                            // freq, amp, dur, dens (SuperCollider)
+                            if let (Some(osc::Type::Float(center_freq)), Some(osc::Type::Float(amplitude)), Some(osc::Type::Float(duration)), Some(osc::Type::Float(density))) = (msg.args.first(), msg.args.get(1), msg.args.get(2), msg.args.get(3)) {
+                                Some(MusicalEvent::Cluster {
+                                    center_freq: *center_freq,
+                                    freq_width: 0.0, // valor por defecto
+                                    density: *density,
+                                    amplitude: *amplitude,
+                                    duration: *duration,
+                                    start_time: std::time::Instant::now(),
                                 })
                             } else { None }
                         } else { None }
@@ -316,7 +339,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
 
                 if let Some(event_to_send) = event {
                     if let Err(e) = tx.send(event_to_send) {
-                        Logger::log_error(&format!("❌ Error al enviar evento musical al hilo principal: {}", e));
+                        Logger::log_error(&format!("❌ Error al enviar evento musical al hilo principal: {e}"));
                         break;
                     }
                 } else {
@@ -378,7 +401,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
             return Err(VisualizerError::ValidationError {
                 field: "frecuencia".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.freq_min, self.audio_config.freq_max),
-                actual: format!("{}", freq),
+                actual: format!("{freq}"),
                 details: "Frecuencia fuera de rango válido".to_string(),
             });
         }
@@ -386,7 +409,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
             return Err(VisualizerError::ValidationError {
                 field: "amplitud".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.amp_min, self.audio_config.amp_max),
-                actual: format!("{}", amp),
+                actual: format!("{amp}"),
                 details: "Amplitud fuera de rango válido".to_string(),
             });
         }
@@ -394,12 +417,12 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
             return Err(VisualizerError::ValidationError {
                 field: "duración".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.dur_min, self.audio_config.dur_max),
-                actual: format!("{}", dur),
+                actual: format!("{dur}"),
                 details: "Duración fuera de rango válido".to_string(),
             });
         }
 
-        Logger::log_debug(&format!("DEBUG: Parseado: instrument=default, freq={:.2}, amp={:.3}, dur={:.2}", freq, amp, dur));
+        Logger::log_debug(&format!("DEBUG: Parseado: instrument=default, freq={freq:.2}, amp={amp:.3}, dur={dur:.2}"));
         Logger::log_debug("DEBUG: Validación exitosa: nota aceptada");
         Ok((freq, amp, dur))
     }
@@ -450,7 +473,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
             return Err(VisualizerError::ValidationError {
                 field: "frecuencia".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.freq_min, self.audio_config.freq_max),
-                actual: format!("{}", freq),
+                actual: format!("{freq}"),
                 details: "Frecuencia de drone fuera de rango válido".to_string(),
             });
         }
@@ -458,7 +481,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
             return Err(VisualizerError::ValidationError {
                 field: "amplitud".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.amp_min, self.audio_config.amp_max),
-                actual: format!("{}", amp),
+                actual: format!("{amp}"),
                 details: "Amplitud de drone fuera de rango válido".to_string(),
             });
         }
@@ -466,7 +489,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
             return Err(VisualizerError::ValidationError {
                 field: "duración".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.dur_min, self.audio_config.dur_max),
-                actual: format!("{}", dur),
+                actual: format!("{dur}"),
                 details: "Duración de drone fuera de rango válido".to_string(),
             });
         }
@@ -586,7 +609,7 @@ pub fn setup_osc_receiver(listen_port: u16) -> VisualizerResult<Receiver<Musical
             return Err(VisualizerError::ValidationError {
                 field: "centro_frecuencia".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.freq_min, self.audio_config.freq_max),
-                actual: format!("{}", center_freq),
+                actual: format!("{center_freq}"),
                 details: "Frecuencia central fuera de rango válido".to_string(),
             });
         }

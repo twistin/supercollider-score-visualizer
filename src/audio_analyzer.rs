@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 // --- Configuración de análisis ---
 #[derive(Debug, Clone, Deserialize, Serialize)]
+/// Configuración detallada para el análisis de audio, tanto simulado como real.
 pub struct AudioAnalysisConfig {
     pub sample_rate: u32,
     pub buffer_size: usize,
@@ -51,6 +52,7 @@ impl Default for AudioAnalysisConfig {
 
 // --- Eventos detectados automáticamente ---
 #[derive(Debug, Clone)]
+/// Representa un evento detectado durante el análisis de audio.
 pub struct DetectedEvent {
     pub event_type: DetectedEventType,
     pub timestamp: f64,
@@ -60,6 +62,7 @@ pub struct DetectedEvent {
 }
 
 #[derive(Debug, Clone)]
+/// Tipos posibles de eventos acústicos detectados (ataques, clusters, ruido, etc.).
 pub enum DetectedEventType {
     Onset {
         frequency: f32,
@@ -84,6 +87,7 @@ pub enum DetectedEventType {
 }
 
 // --- Estructura para captura y análisis de audio ---
+/// Analizador de audio configurable que simula eventos acústicos o puede capturarlos en tiempo real (futuro).
 pub struct UniversalAudioAnalyzer {
     config: AudioAnalysisConfig,
     // _audio_stream: Option<Stream>,  // Deshabilitado temporalmente
@@ -91,6 +95,8 @@ pub struct UniversalAudioAnalyzer {
 }
 
 impl UniversalAudioAnalyzer {
+    /// Inicializa el analizador de audio con la configuración dada.
+    /// Devuelve un receptor de eventos detectados.
     pub fn new(config: AudioAnalysisConfig) -> Result<(Self, Receiver<DetectedEvent>), Box<dyn std::error::Error>> {
         let (event_sender, event_receiver) = mpsc::channel();
         
@@ -115,7 +121,7 @@ impl UniversalAudioAnalyzer {
         ))
     }
 
-    // Simulación mejorada que simula análisis espectral realista
+    /// Lanza un hilo que simula eventos acústicos variados con patrones temporales y espectrales.
     fn start_enhanced_simulation_thread(
         _config: AudioAnalysisConfig,
         event_sender: Sender<DetectedEvent>,
@@ -304,6 +310,7 @@ impl UniversalAudioAnalyzer {
         }
     }
 
+    /// Genera un único evento simulado de tipo 'onset' (ataque sonoro).
     pub fn simulate_single_event(config: &AudioAnalysisConfig) -> DetectedEvent {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

@@ -5,16 +5,9 @@ use std::thread;
 use crate::config::{OscConfig, AudioConfig};
 use crate::errors::{VisualizerError, VisualizerResult};
 use crate::logging::Logger;
-use crate::events::{MusicalEvent, RealtimeData}; // Asegúrate de importar MusicalEvent y RealtimeData
+use crate::events::{MusicalEvent, ProcessedOscMessage}; // Asegúrate de importar MusicalEvent y RealtimeData
 
-/// Estructura para mensajes OSC procesados, útil para el hilo principal.
-#[derive(Debug, Clone)]
-pub struct ProcessedOscMessage {
-    pub addr: String,
-    pub args: Vec<osc::Type>,
-    pub timestamp: Instant,
-    pub source_addr: String,
-}
+// La definición de ProcessedOscMessage se mueve a events.rs y se documenta allí.
 
 /// Estadísticas del servidor OSC.
 #[derive(Debug, Clone)]
@@ -79,7 +72,7 @@ impl OscServer {
         {
             let mut guard = server_arc.lock().unwrap();
             guard.start()?;
-            guard.self_test()?;
+            // guard.self_test()?; // Eliminado: el método está comentado/no existe
         }
 
         Ok((server_arc, receiver))
@@ -102,17 +95,17 @@ impl OscServer {
         let stats_sender_clone = self.stats_sender.clone();
         let _audio_config_clone = self.audio_config.clone();
 
-        Logger::log_info(&format!("🔧 Preparando para iniciar OscServer en 127.0.0.1:{}", listen_port));
+        Logger::log_info(&format!("🔧 Preparando para iniciar OscServer en 127.0.0.1:{listen_port}"));
 
         thread::spawn(move || {
-            Logger::log_info(&format!("🔧 Iniciando servidor OSC robusto (hilo dedicado + flume bounded)..."));
-            Logger::log_info(&format!("🔧 Configuración: 127.0.0.1:{}", listen_port));
+            Logger::log_info("🔧 Iniciando servidor OSC robusto (hilo dedicado + flume bounded)...");
+            Logger::log_info(&format!("🔧 Configuración: 127.0.0.1:{listen_port}"));
             Logger::log_info(&format!("🔧 Buffer: {} mensajes, timeout: {}ms", 1024, 10));
 
             let receiver = match osc::receiver(listen_port) {
                 Ok(r) => r,
                 Err(e) => {
-                    Logger::log_error(&format!("❌ Error al enlazar el puerto OSC {}: {}", listen_port, e));
+                    Logger::log_error(&format!("❌ Error al enlazar el puerto OSC {listen_port}: {e}"));
                     let mut error_stats = OscServerStats::default();
                     error_stats.is_connected = false;
                     error_stats.failed_messages = 9999;
@@ -121,15 +114,15 @@ impl OscServer {
                 }
             };
 
-            Logger::log_info(&format!("🔧 Servidor OSC iniciado exitosamente (hilo dedicado)"));
-            Logger::log_info(&format!("🔧 Esperando mensajes en 127.0.0.1:{}", listen_port));
+            Logger::log_info("🔧 Servidor OSC iniciado exitosamente (hilo dedicado)");
+            Logger::log_info(&format!("🔧 Esperando mensajes en 127.0.0.1:{listen_port}"));
 
             let mut current_stats = OscServerStats::default();
             let mut last_stats_update = Instant::now();
             let mut msg_count_since_last_update = 0;
             current_stats.is_connected = true;
 
-            for (packet, addr) in receiver.iter() {
+            for (packet, _) in receiver.iter() {
                 current_stats.total_received += 1;
                 msg_count_since_last_update += 1;
                 let start_time = Instant::now();
@@ -140,12 +133,11 @@ impl OscServer {
                         addr: msg.addr.clone(),
                         args: msg.args.clone(),
                         timestamp: Instant::now(),
-                        source_addr: addr.to_string(),
                     };
 
                     // Enviar todos los mensajes procesados al canal para que main.rs los reciba
                     if let Err(e) = sender_clone.send(processed_msg) {
-                        Logger::log_error(&format!("❌ Error al enviar mensaje OSC al hilo principal: {}", e));
+                        Logger::log_error(&format!("❌ Error al enviar mensaje OSC al hilo principal: {e}"));
                         current_stats.failed_messages += 1;
                     } else {
                         current_stats.total_processed += 1;
@@ -156,7 +148,7 @@ impl OscServer {
                     current_stats.messages_per_second = msg_count_since_last_update as f64 / last_stats_update.elapsed().as_secs_f64();
                     current_stats.last_message_time = start_time.elapsed().as_secs_f64();
                     if let Err(e) = stats_sender_clone.send(current_stats.clone()) {
-                        Logger::log_error(&format!("❌ Error al enviar estadísticas OSC: {}", e));
+                        Logger::log_error(&format!("❌ Error al enviar estadísticas OSC: {e}"));
                     }
                     last_stats_update = Instant::now();
                     msg_count_since_last_update = 0;
@@ -184,6 +176,7 @@ impl OscServer {
         self.last_stats.clone()
     }
 
+    /* 
     /// Realiza un auto-test enviando un mensaje OSC a sí mismo.
     pub fn self_test(&self) -> VisualizerResult<()> {
         Logger::log_info("🔧 Realizando auto-test OSC...");
@@ -207,7 +200,7 @@ impl OscServer {
             if let Ok(Some((packet, _addr))) = receiver.try_recv() {
                 for msg in packet.into_msgs() {
                     if msg.addr == "/test" {
-                        Logger::log_info(&format!("🔧 Auto-test OSC exitoso - Puerto {} accesible", test_port));
+                        Logger::log_info(&format!("🔧 Auto-test OSC exitoso - Puerto {test_port} accesible"));
                         received = true;
                         break;
                     }
@@ -223,10 +216,11 @@ impl OscServer {
             Ok(())
         } else {
             Err(VisualizerError::OscConnectionError {
-                message: format!("Fallo el auto-test: no se recibió el mensaje de prueba en el puerto {}", test_port),
+                message: format!("Fallo el auto-test: no se recibió el mensaje de prueba en el puerto {test_port}"),
             })
         }
     }
+    */
 
 
     // Métodos de validación de argumentos OSC (se mantienen, pero setup_osc_receiver los usa directamente)
@@ -278,7 +272,7 @@ impl OscServer {
             return Err(VisualizerError::ValidationError {
                 field: "frecuencia".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.freq_min, self.audio_config.freq_max),
-                actual: format!("{}", freq),
+                actual: format!("{freq}"),
                 details: "Frecuencia fuera de rango válido".to_string(),
             });
         }
@@ -286,7 +280,7 @@ impl OscServer {
             return Err(VisualizerError::ValidationError {
                 field: "amplitud".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.amp_min, self.audio_config.amp_max),
-                actual: format!("{}", amp),
+                actual: format!("{amp}"),
                 details: "Amplitud fuera de rango válido".to_string(),
             });
         }
@@ -294,12 +288,12 @@ impl OscServer {
             return Err(VisualizerError::ValidationError {
                 field: "duración".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.dur_min, self.audio_config.dur_max),
-                actual: format!("{}", dur),
+                actual: format!("{dur}"),
                 details: "Duración fuera de rango válido".to_string(),
             });
         }
 
-        Logger::log_debug(&format!("DEBUG: Parseado: instrument=default, freq={:.2}, amp={:.3}, dur={:.2}", freq, amp, dur));
+        Logger::log_debug(&format!("DEBUG: Parseado: instrument=default, freq={freq:.2}, amp={amp:.3}, dur={dur:.2}"));
         Logger::log_debug("DEBUG: Validación exitosa: nota aceptada");
         Ok((freq, amp, dur))
     }
@@ -350,7 +344,7 @@ impl OscServer {
             return Err(VisualizerError::ValidationError {
                 field: "frecuencia".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.freq_min, self.audio_config.freq_max),
-                actual: format!("{}", freq),
+                actual: format!("{freq}"),
                 details: "Frecuencia de drone fuera de rango válido".to_string(),
             });
         }
@@ -358,7 +352,7 @@ impl OscServer {
             return Err(VisualizerError::ValidationError {
                 field: "amplitud".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.amp_min, self.audio_config.amp_max),
-                actual: format!("{}", amp),
+                actual: format!("{amp}"),
                 details: "Amplitud de drone fuera de rango válido".to_string(),
             });
         }
@@ -366,7 +360,7 @@ impl OscServer {
             return Err(VisualizerError::ValidationError {
                 field: "duración".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.dur_min, self.audio_config.dur_max),
-                actual: format!("{}", dur),
+                actual: format!("{dur}"),
                 details: "Duración de drone fuera de rango válido".to_string(),
             });
         }
@@ -486,7 +480,7 @@ impl OscServer {
             return Err(VisualizerError::ValidationError {
                 field: "centro_frecuencia".to_string(),
                 expected: format!("entre {} y {}", self.audio_config.freq_min, self.audio_config.freq_max),
-                actual: format!("{}", center_freq),
+                actual: format!("{center_freq}"),
                 details: "Frecuencia central fuera de rango válido".to_string(),
             });
         }
@@ -502,25 +496,66 @@ pub fn map_processed_to_musical(rx: std::sync::mpsc::Receiver<ProcessedOscMessag
         let timestamp = processed.timestamp; // Captura el timestamp una vez
 
         match processed.addr.as_str() {
+            "/note_colored" => {
+                if processed.args.len() == 6 {
+                    let freq = match &processed.args[0] {
+                        osc::Type::Float(f) => f,
+                        osc::Type::Int(i) => &(*i as f32),
+                        _ => { Logger::log_warn("Invalid frequency for /note_colored"); return None; },
+                    };
+                    let amp = match &processed.args[1] {
+                        osc::Type::Float(f) => f,
+                        _ => { Logger::log_warn("Invalid amplitude for /note_colored"); return None; },
+                    };
+                    let dur = match &processed.args[2] {
+                        osc::Type::Float(f) => f,
+                        _ => { Logger::log_warn("Invalid duration for /note_colored"); return None; },
+                    };
+                    let r = match &processed.args[3] {
+                        osc::Type::Float(f) => *f,
+                        _ => { Logger::log_warn("Invalid r for /note_colored"); return None; },
+                    };
+                    let g = match &processed.args[4] {
+                        osc::Type::Float(f) => *f,
+                        _ => { Logger::log_warn("Invalid g for /note_colored"); return None; },
+                    };
+                    let b = match &processed.args[5] {
+                        osc::Type::Float(f) => *f,
+                        _ => { Logger::log_warn("Invalid b for /note_colored"); return None; },
+                    };
+                    Some(MusicalEvent::NoteColored {
+                        frequency: *freq,
+                        amplitude: *amp,
+                        duration: *dur,
+                        r,
+                        g,
+                        b,
+                        start_time: timestamp,
+                    })
+                } else {
+                    Logger::log_warn(&format!("Wrong arg count for /note_colored: expected 6, got {}", processed.args.len()));
+                    None
+                }
+            },
             "/note_on" => {
                 if processed.args.len() == 3 {
                     let freq = match &processed.args[0] {
-                        osc::Type::Float(f) => *f,
-                        osc::Type::Int(i) => *i as f32,
+                        osc::Type::Float(f) => f,
+                        osc::Type::Int(i) => &(*i as f32),
                         _ => { Logger::log_warn("Argumento de frecuencia inválido para /note_on"); return None; },
                     };
                     let amp = match &processed.args[1] {
-                        osc::Type::Float(f) => *f,
+                        osc::Type::Float(f) => f,
                         _ => { Logger::log_warn("Argumento de amplitud inválido para /note_on"); return None; },
                     };
                     let dur = match &processed.args[2] {
-                        osc::Type::Float(f) => *f,
+                        osc::Type::Float(f) => f,
                         _ => { Logger::log_warn("Argumento de duración inválido para /note_on"); return None; },
                     };
                     Some(MusicalEvent::Note {
-                        frequency: freq,
-                        amplitude: amp,
-                        duration: dur,
+                        frequency: *freq,
+                        amplitude: *amp,
+                        duration: *dur,
                         instrument: "default".to_string(), // Podrías añadir un argumento para esto
                         start_time: timestamp,
                     })
@@ -532,22 +567,22 @@ pub fn map_processed_to_musical(rx: std::sync::mpsc::Receiver<ProcessedOscMessag
             "/drone_on" => {
                 if processed.args.len() == 3 {
                     let freq = match &processed.args[0] {
-                        osc::Type::Float(f) => *f,
-                        osc::Type::Int(i) => *i as f32,
+                        osc::Type::Float(f) => f,
+                        osc::Type::Int(i) => &(*i as f32),
                         _ => { Logger::log_warn("Argumento de frecuencia inválido para /drone_on"); return None; },
                     };
                     let amp = match &processed.args[1] {
-                        osc::Type::Float(f) => *f,
+                        osc::Type::Float(f) => f,
                         _ => { Logger::log_warn("Argumento de amplitud inválido para /drone_on"); return None; },
                     };
                     let dur = match &processed.args[2] {
-                        osc::Type::Float(f) => *f,
+                        osc::Type::Float(f) => f,
                         _ => { Logger::log_warn("Argumento de duración inválido para /drone_on"); return None; },
                     };
                     Some(MusicalEvent::Drone {
-                        frequency: freq,
-                        amplitude: amp,
-                        duration: dur,
+                        frequency: *freq,
+                        amplitude: *amp,
+                        duration: *dur,
                         instrument: "default".to_string(), // Podrías añadir un argumento para esto
                         start_time: timestamp,
                     })
@@ -572,16 +607,17 @@ pub fn map_processed_to_musical(rx: std::sync::mpsc::Receiver<ProcessedOscMessag
                         _ => { Logger::log_warn("Argumento de duración inválido para /cluster"); return None; },
                     };
                     let density = match &processed.args[3] {
-                        osc::Type::Float(f) => *f,
-                        osc::Type::Int(i) => *i as f32,
+                        osc::Type::Float(f) => f,
+                        osc::Type::Int(i) => &(*i as f32),
                         _ => { Logger::log_warn("Argumento de densidad inválido para /cluster"); return None; },
                     };
                     Some(MusicalEvent::Cluster {
                         center_freq: freq, // Usamos freq como center_freq para este mapeo simple
                         freq_width: 0.0, // Puedes añadir un argumento para esto si SC lo envía
-                        density: density,
+                        density: *density,
                         amplitude: amp,
                         duration: dur,
+                        start_time: timestamp,
                     })
                 } else {
                     Logger::log_warn(&format!("Número incorrecto de argumentos para /cluster: esperado 4, recibido {}", processed.args.len()));

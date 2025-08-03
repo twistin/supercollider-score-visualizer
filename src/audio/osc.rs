@@ -26,7 +26,7 @@ pub fn process_osc_messages(model: &mut Model, app: &App) {
     }
 }
 
-/// Maneja un mensaje OSC individual
+/// Maneja un mensaje OSC individual según su dirección
 fn handle_osc_message(model: &mut Model, msg: &osc::Message, app: &App) {
     log::info!("🎵 OSC recibido: {} con {} args", msg.addr, msg.args.len());
     let args = &msg.args;
@@ -35,15 +35,13 @@ fn handle_osc_message(model: &mut Model, msg: &osc::Message, app: &App) {
         "/event" => handle_event_message(model, args, app),
         "/analysis" => handle_analysis_message(model, args),
         "/drone" => handle_drone_message(model, args),
-        "/cluster" => handle_cluster_message(model, args),
-        "/cluster_advanced" => handle_cluster_advanced_message(model, args),
-        "/cluster_extreme" => handle_cluster_extreme_message(model, args),
+        "/cluster" | "/cluster_advanced" | "/cluster_extreme" => handle_cluster_message(model, args),
         "/ping" => handle_ping_message(),
         _ => handle_unknown_message(&msg.addr),
     }
 }
 
-/// Maneja eventos discretos (/event)
+/// Maneja eventos musicales discretos enviados desde SuperCollider (/event)
 fn handle_event_message(model: &mut Model, args: &[osc::Type], app: &App) {
     if args.len() >= 4 {
         let event_type = args.get(0).and_then(|v| v.clone().string()).unwrap_or("default".to_string());
@@ -59,7 +57,7 @@ fn handle_event_message(model: &mut Model, args: &[osc::Type], app: &App) {
     }
 }
 
-/// Maneja datos de análisis continuo (/analysis)
+/// Maneja datos de análisis continuo (amplitud, brillo, ruido) (/analysis)
 fn handle_analysis_message(model: &mut Model, args: &[osc::Type]) {
     if args.len() >= 3 {
         let amp = get_float_arg(args, 0, 0.0);
@@ -74,7 +72,7 @@ fn handle_analysis_message(model: &mut Model, args: &[osc::Type]) {
     }
 }
 
-/// Maneja eventos de drone (/drone)
+/// Maneja eventos de drone sostenidos (/drone)
 fn handle_drone_message(model: &mut Model, args: &[osc::Type]) {
     if args.len() >= 2 {
         let freq = get_float_arg(args, 0, 440.0);
@@ -85,7 +83,7 @@ fn handle_drone_message(model: &mut Model, args: &[osc::Type]) {
     }
 }
 
-/// Maneja datos de cluster básico (/cluster)
+/// Maneja datos de clúster (versión básica y variantes) (/cluster, etc.)
 fn handle_cluster_message(model: &mut Model, args: &[osc::Type]) {
     let freq = get_float_arg(args, 0, 300.0);
     let amp = get_float_arg(args, 1, 200.0);
@@ -93,22 +91,12 @@ fn handle_cluster_message(model: &mut Model, args: &[osc::Type]) {
     model.update_cluster_data(freq, amp, level);
 }
 
-/// Maneja datos de cluster avanzado (/cluster_advanced)
-fn handle_cluster_advanced_message(model: &mut Model, args: &[osc::Type]) {
-    handle_cluster_message(model, args);
-}
-
-/// Maneja datos de cluster extremo (/cluster_extreme)
-fn handle_cluster_extreme_message(model: &mut Model, args: &[osc::Type]) {
-    handle_cluster_message(model, args);
-}
-
-/// Maneja mensajes de ping (/ping)
+/// Maneja mensajes tipo ping desde el cliente OSC (/ping)
 fn handle_ping_message() {
     log::info!("📡 Ping recibido desde SuperCollider");
 }
 
-/// Maneja mensajes OSC desconocidos
+/// Log de advertencia para direcciones OSC no reconocidas
 fn handle_unknown_message(addr: &str) {
     log::info!("❓ Mensaje OSC desconocido: {}", addr);
 }

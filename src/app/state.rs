@@ -2,6 +2,8 @@
 // Mantiene el estado global de la aplicación incluyendo eventos musicales y tiempo
 
 use std::sync::{Arc, Mutex};
+/// Tipo para compartir una lista de notas entre hilos
+pub type SharedNoteList = Arc<Mutex<Vec<Note>>>;
 use crate::model::Note; // Usar la estructura Note del módulo model
 use crate::errors::{VisualizerError, VisualizerResult, sync_error}; // Importar tipos de error y macro
 use anyhow::Result;
@@ -11,7 +13,7 @@ use tracing::debug;
 #[derive(Debug)]
 pub struct AppState {
     /// Eventos musicales compartidos entre hilos
-    pub events: Arc<Mutex<Vec<Note>>>, // Cambiado a Vec<Note>
+    pub events: SharedNoteList,
     /// Tiempo actual de la aplicación
     pub time: f32,
 }
@@ -32,7 +34,7 @@ impl AppState {
     }
 
     /// Obtiene una copia del Arc para compartir entre hilos
-    pub fn get_events_handle(&self) -> Arc<Mutex<Vec<Note>>> { // Cambiado a Vec<Note>
+    pub fn get_events_handle(&self) -> SharedNoteList {
         Arc::clone(&self.events)
     }
 
@@ -41,10 +43,7 @@ impl AppState {
         self.time = time;
     }
 
-    /// Actualiza los tiempos de eventos nuevos y elimina eventos terminados
-    /// Nota: La lógica principal de actualización de `time_alive` y limpieza
-    /// de `Note`s se maneja en `model.rs`. Esta función se enfoca en la limpieza
-    /// de la colección de eventos en `AppState` si es necesario.
+    // 🎵 Actualiza y limpia eventos musicales expirados con visibilidad extendida
     pub fn update_events(&mut self) -> Result<()> {
         let mut events_lock = self.events.lock()
             .map_err(|_| sync_error!("Error obteniendo lock de eventos en AppState"))?;
@@ -65,7 +64,7 @@ impl AppState {
         Ok(())
     }
 
-    /// Obtiene el número de eventos activos
+    // 📊 Cuenta los eventos actualmente activos
     pub fn get_active_events_count(&self) -> Result<usize> {
         let events_lock = self.events.lock()
             .map_err(|_| sync_error!("Error obteniendo lock para contar eventos activos en AppState"))?;
@@ -73,15 +72,15 @@ impl AppState {
         Ok(events_lock.iter().filter(|e| e.time_alive <= e.duration).count())
     }
 
-    /// Obtiene el número total de eventos
+    // 📈 Cuenta todos los eventos en memoria
     pub fn get_total_events_count(&self) -> Result<usize> {
         let events_lock = self.events.lock()
             .map_err(|_| sync_error!("Error obteniendo lock para contar eventos totales en AppState"))?;
         Ok(events_lock.len())
     }
 
-    /// Obtiene una copia de todos los eventos para renderizado
-    pub fn get_events_for_render(&self) -> Result<Vec<Note>> { // Cambiado a Vec<Note>
+    // 🖼️ Devuelve una copia de los eventos para renderizado visual
+    pub fn get_events_for_render(&self) -> Result<Vec<Note>> {
         let events_lock = self.events.lock()
             .map_err(|_| sync_error!("Error obteniendo lock para renderizado en AppState"))?;
         Ok(events_lock.clone())

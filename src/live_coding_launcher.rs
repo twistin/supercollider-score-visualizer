@@ -1,16 +1,28 @@
+//! 🎬 Script de arranque para sesiones de Live Coding
+//! Este módulo lanza SuperCollider y luego el visualizador Nannou.
+//! Asegúrate de tener 'sclang' y 'cargo' disponibles en tu PATH.
+//!
+//! Uso recomendado:
+//! $ cargo run --bin live_coding_launcher
+
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
 fn launch_supercollider() -> Result<(), String> {
     use std::path::Path;
-    let path = Path::new("inicio_maestro.scd");
+    let path = Path::new("scripts/inicio_maestro.scd");
     if !path.exists() {
-        return Err("⚠️ Archivo 'inicio_maestro.scd' no encontrado.".to_string());
+        return Err("⚠️ Archivo 'scripts/inicio_maestro.scd' no encontrado.".to_string());
+    }
+
+    // Chequeo simple para verificar si 'sclang' está disponible
+    if Command::new("which").arg("sclang").output().map(|o| !o.status.success()).unwrap_or(true) {
+        return Err("❌ 'sclang' no está disponible en el PATH.".to_string());
     }
 
     let status = Command::new("sclang")
-        .arg("inicio_maestro.scd")
+        .arg("scripts/inicio_maestro.scd")
         .status()
         .map_err(|e| format!("❌ No se pudo ejecutar sclang: {}", e))?;
 
@@ -39,13 +51,17 @@ fn launch_visualizer() -> Result<(), String> {
 fn main() {
     println!("🚀 Iniciando sistema de live coding...");
 
-    println!("🎵 Iniciando SuperCollider...");
-    if let Err(e) = launch_supercollider() {
-        println!("{}", e);
-        return;
-    }
+    let args: Vec<String> = std::env::args().collect();
+    let skip_sc = args.iter().any(|arg| arg == "--skip-sc");
 
-    thread::sleep(Duration::from_secs(5));
+    if !skip_sc {
+        println!("🎵 Iniciando SuperCollider...");
+        if let Err(e) = launch_supercollider() {
+            println!("{}", e);
+            return;
+        }
+        thread::sleep(Duration::from_secs(5));
+    }
 
     println!("🎨 Iniciando visualizador Nannou...");
     if let Err(e) = launch_visualizer() {

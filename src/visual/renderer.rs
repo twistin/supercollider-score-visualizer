@@ -7,6 +7,7 @@ use crate::events::map_freq_to_y; // <-- Importar map_freq_to_y desde events.rs
 
 // Función principal para renderizar el visualizador
 pub fn render_visualizer(app: &App, model: &Model, frame: Frame) {
+    println!("[DEBUG] render_visualizer llamado");
     let draw = app.draw();
     let win = app.window_rect();
 
@@ -25,7 +26,7 @@ draw.background().color(Rgba::new(bg_color[0], bg_color[1], bg_color[2], bg_colo
     }
 
     // Dibujar línea de tiempo
-    draw_timeline_bar(&draw, &win, model.elapsed_time, &model.config);
+    draw_timeline_bar(&draw, &win, model.time_info.elapsed_time, &model.config);
 
     // Dibujar estadísticas OSC y otros datos de depuración
     if model.config.visual.show_debug {
@@ -37,6 +38,7 @@ draw.background().color(Rgba::new(bg_color[0], bg_color[1], bg_color[2], bg_colo
 
 // Dibuja la cuadrícula de fondo
 fn draw_grid(draw: &Draw, win: &Rect, config: &AppConfig) {
+    println!("[DEBUG] draw_grid llamado");
     let grid_color = &config.visual.grid_color;
     let color = Rgba::new(grid_color[0], grid_color[1], grid_color[2], grid_color[3]);
 
@@ -47,7 +49,7 @@ fn draw_grid(draw: &Draw, win: &Rect, config: &AppConfig) {
             .points(pt2(win.left(), y), pt2(win.right(), y))
             .color(color)
             .stroke_weight(1.0);
-        draw.text(&format!("{:.0} Hz", freq))
+        draw.text(&format!("{freq:.0} Hz"))
             .font_size(10)
             .color(color)
             .x(win.left() + 20.0)
@@ -88,7 +90,7 @@ fn draw_timeline_bar(draw: &Draw, win: &Rect, current_time: f32, config: &AppCon
 .points(pt2(x, win.bottom() + 5.0), pt2(x, win.bottom() + 15.0))
             .color(WHITE)
             .stroke_weight(1.0);
-        draw.text(&format!("{:.1}s", t))
+        draw.text(&format!("{t:.1}s"))
             .font_size(10)
             .color(WHITE)
             .x(x)
@@ -102,8 +104,8 @@ fn draw_debug_info(draw: &Draw, win: &Rect, model: &Model) {
     let font_size = 12;
     let margin = 20.0;
 
-    let fps = 1.0 / model.last_update_time.elapsed().as_secs_f32();
-    let fps_text = draw.text(&format!("FPS: {:.0}", fps))
+    let fps = 1.0 / model.time_info.last_update_time.elapsed().as_secs_f32();
+    let fps_text = draw.text(&format!("FPS: {fps:.0}"))
         .font_size(font_size)
         .color(text_color)
         .x(win.right() - margin)

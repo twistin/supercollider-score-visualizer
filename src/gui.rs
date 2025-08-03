@@ -25,6 +25,12 @@ impl GuiError {
     }
 }
 
+impl From<std::io::Error> for GuiError {
+    fn from(e: std::io::Error) -> Self {
+        GuiError::new(&format!("IO error: {}", e))
+    }
+}
+
 fn print_welcome() {
     println!("🎨 SC Score Visualizer GUI v2.0");
     println!("═══════════════════════════════════════");
@@ -61,9 +67,7 @@ pub fn run_gui() -> Result<(), GuiError> {
 
     println!("\n¿Desea iniciar el visualizador ahora? (s/N)");
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).map_err(|e| {
-        GuiError::new(&format!("Error leyendo entrada: {}", e))
-    })?;
+    std::io::stdin().read_line(&mut input)?;
 
     if input.trim().to_lowercase() == "s" {
         println!("🚀 Iniciando visualizador...");
@@ -76,9 +80,7 @@ pub fn run_gui() -> Result<(), GuiError> {
 
     println!("\n🎯 Presione Enter para continuar o Ctrl+C para salir...");
     input.clear();
-    std::io::stdin().read_line(&mut input).map_err(|e| {
-        GuiError::new(&format!("Error leyendo entrada: {}", e))
-    })?;
+    std::io::stdin().read_line(&mut input)?;
 
     println!("✅ GUI básica ejecutada correctamente.");
     println!("💡 Para futuras versiones se implementará una GUI completa con egui/iced.");

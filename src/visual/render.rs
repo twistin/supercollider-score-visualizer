@@ -13,7 +13,7 @@ pub fn draw_visualization(app: &App, model: &Model, frame: Frame) {
     draw_background(&draw, win, &model.display_config.background_style);
 
     if model.display_config.show_grid {
-        draw_grid(&draw, win);
+        draw_grid(&draw, win, &model.audio_visual_mapping);
     }
 
     // CAPA 2: Cluster (si está activo)
@@ -22,6 +22,7 @@ pub fn draw_visualization(app: &App, model: &Model, frame: Frame) {
             &draw,
             &model.cluster_data,
             &model.display_config.visual_quality,
+            &model.audio_visual_mapping,
         );
     }
 
@@ -32,12 +33,12 @@ pub fn draw_visualization(app: &App, model: &Model, frame: Frame) {
 
     // CAPA 4: Análisis continuo (fondo)
     if model.analysis.amplitude > 0.01 {
-        draw_analysis(&draw, &model.analysis);
+        draw_analysis(&draw, &model.analysis, &model.audio_visual_mapping);
     }
 
     // CAPA 5: Eventos discretos
     for event in &model.events {
-        draw_musical_event(&draw, event, win);
+        draw_musical_event(&draw, event, win, &model.audio_visual_mapping);
     }
 
     // CAPA 6: Debug info
@@ -86,7 +87,7 @@ fn draw_background(draw: &Draw, win: Rect, style: &BackgroundStyle) {
 }
 
 /// Dibuja la rejilla profesional
-fn draw_grid(draw: &Draw, win: Rect) {
+fn draw_grid(draw: &Draw, win: Rect, mapping: &AudioVisualMapping) {
     // Líneas verticales de tiempo
     let main_step_x = 120.0;
     let main_line_color = rgba(0.4, 0.6, 0.8, 0.25);
@@ -112,8 +113,6 @@ fn draw_grid(draw: &Draw, win: Rect) {
         (3520.0, "3.52k"), // A7
     ];
 
-    let mapping = AudioVisualMapping::default();
-
     for (freq, label) in &main_freq_markers {
         let y = mapping.freq_to_y(*freq, win);
 
@@ -133,13 +132,12 @@ fn draw_grid(draw: &Draw, win: Rect) {
 }
 
 /// Dibuja un cluster de partículas
-fn draw_cluster(draw: &Draw, cluster: &crate::core::model::ClusterData, quality: &VisualQuality) {
+fn draw_cluster(draw: &Draw, cluster: &crate::core::model::ClusterData, quality: &VisualQuality, mapping: &AudioVisualMapping) {
     let alpha = map_range(cluster.audio_level, 0.0, 0.3, 0.0, 0.8);
     let cluster_size = cluster.size;
     let cluster_density = cluster.density;
 
     // Color basado en frecuencia
-    let mapping = AudioVisualMapping::default();
     let cluster_hue = mapping.freq_to_hue(cluster.frequency);
 
     // Número de partículas según calidad
@@ -219,7 +217,7 @@ fn draw_drone(draw: &Draw, drone: &crate::core::model::DroneEvent, quality: &Vis
 }
 
 /// Dibuja el análisis continuo de fondo
-fn draw_analysis(draw: &Draw, analysis: &crate::core::model::AnalysisData) {
+fn draw_analysis(draw: &Draw, analysis: &crate::core::model::AnalysisData, mapping: &AudioVisualMapping) {
     let circle_radius = map_range(analysis.amplitude, 0.0, 0.3, 0.0, 350.0);
     let circle_hue = map_range(analysis.brightness, 200.0, 1500.0, 0.0, 0.5);
     let circle_alpha = map_range(analysis.amplitude, 0.0, 0.3, 0.0, 0.3);
@@ -232,8 +230,7 @@ fn draw_analysis(draw: &Draw, analysis: &crate::core::model::AnalysisData) {
 }
 
 /// Dibuja un evento musical discreto
-fn draw_musical_event(draw: &Draw, event: &crate::core::model::MusicalEvent, win: Rect) {
-    let mapping = AudioVisualMapping::default();
+fn draw_musical_event(draw: &Draw, event: &crate::core::model::MusicalEvent, win: Rect, mapping: &AudioVisualMapping) {
     let alpha = mapping.time_to_alpha(event.time_alive, event.duration);
     let line_color: Srgb<u8> = event.color;
 

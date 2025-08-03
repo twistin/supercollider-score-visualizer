@@ -15,12 +15,13 @@ pub struct OscHandler {
 }
 
 impl OscHandler {
-    /// Crea un nuevo manejador OSC
+    /// Crea un nuevo manejador OSC para el puerto dado
     pub fn new(port: u16) -> Self {
         Self { port }
     }
 
-    /// Inicia el receptor OSC en un hilo separado
+    /// Inicia el receptor OSC en un hilo separado. Escucha mensajes entrantes y
+    /// añade eventos musicales parseados al vector compartido.
     pub fn start_receiver(&self, events: Arc<Mutex<Vec<MusicalEvent>>>) -> anyhow::Result<()> {
         let port = self.port;
         info!("🎵 Iniciando receptor OSC en puerto {}...", port);
@@ -95,15 +96,6 @@ impl OscHandler {
                 format!("Insuficientes argumentos: {} (mínimo 4)", args.len())
             ).into());
         }
-
-        // Función auxiliar para convertir Int o Float a f32
-        let to_f32 = |arg: &osc::Type| -> Option<f32> {
-            match arg {
-                osc::Type::Float(f) => Some(*f),
-                osc::Type::Int(i) => Some(*i as f32),
-                _ => None,
-            }
-        };
 
         let event_type = match args.get(0) {
             Some(osc::Type::String(s)) => s,
@@ -250,4 +242,13 @@ fn parse_noise_event(freq: f32, amp: f32, dur: f32, args: &[osc::Type], visual_p
         duration: dur,
         visual_params,
     })
+}
+
+/// Convierte un argumento OSC en f32 si es Int o Float
+fn to_f32(arg: &osc::Type) -> Option<f32> {
+    match arg {
+        osc::Type::Float(f) => Some(*f),
+        osc::Type::Int(i) => Some(*i as f32),
+        _ => None,
+    }
 }

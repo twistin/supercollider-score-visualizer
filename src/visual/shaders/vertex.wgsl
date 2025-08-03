@@ -21,7 +21,11 @@ struct Uniforms {
     beat_intensity: f32,
     glow_strength: f32,
     particle_center: vec2<f32>,
-    _padding: vec2<f32>,
+    // Eliminado _padding anterior, y añadidos nuevos campos:
+    particle_radius: f32,
+    edge_softness: f32,
+    mix_strength: f32,
+    _padding: vec3<f32>, // ajustado para mantener alineación
 }
 
 @group(0) @binding(0)

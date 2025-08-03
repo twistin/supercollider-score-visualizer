@@ -18,8 +18,20 @@ impl AudioAnalyzer {
         // TODO: análisis de espectro y pitch
     }
 
+    /// Calcula el valor RMS (Root Mean Square) del buffer de audio,
+    /// que se interpreta como una medida de la energía o volumen percibido.
     fn compute_rms(buffer: &[f32]) -> f32 {
         let sum_squares: f32 = buffer.iter().map(|x| x * x).sum();
         (sum_squares / buffer.len() as f32).sqrt()
+    }
+
+    /// TODO: Implementar análisis de espectro (por ejemplo con FFT)
+    fn compute_spectrum(_buffer: &[f32]) -> Vec<f32> {
+        vec![]
+    }
+
+    /// TODO: Implementar detección de pitch (frecuencia fundamental)
+    fn compute_pitch(_buffer: &[f32]) -> f32 {
+        0.0
     }
 }

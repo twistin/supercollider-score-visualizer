@@ -1,6 +1,31 @@
 # SC Score Visualizer v2.0
 
-Un sistema de visualización de audio en tiempo real para SuperCollider, construido con Rust y Nannou. Este proyecto proporciona una interfaz visual avanzada que responde dinámicamente a eventos musicales a través del protocolo OSC.
+> ℹ️ **Nota para desarrolladores**  
+> Este archivo README incluye enlaces a scripts y herramientas que han sido reubicados en la carpeta `scripts/tools/`.  
+> Asegúrate de que cualquier referencia a scripts antiguos sea actualizada en la documentación, y usa los enlaces directos listados en la sección 📚 Documentación útil.
+
+
+Un sistema de visualización de audio en tiempo real para SuperCollider, construido con Rust y Nannou. Diseñado para compositores, investigadores y artistas sonoros que buscan una visualización reactiva y configurable de eventos musicales. Este proyecto proporciona una interfaz visual avanzada que responde dinámicamente a eventos musicales a través del protocolo OSC.
+
+## 📚 Documentación útil
+
+👉 [Ver detalles de arquitectura modular](docs/ARCHITECTURE.md)  
+👉 [Resumen rápido para sesiones de live coding](docs/RESUMEN_LIVE_CODING.md)  
+👉 [Guía completa de uso en sesiones de Live Coding](docs/GUIA_LIVE_CODING.md)
+👉 [Inicio rápido con SuperCollider + Visualizador](docs/INICIO_RAPIDO.md)  
+👉 [Registro de limpieza del repositorio (julio 2025)](docs/logs/2025-07_limpieza_repo.md)
+👉 [Script de inicio rápido (start_visualizer.sh)](scripts/tools/start_visualizer.sh)  
+👉 [Lanzador combinado SuperCollider + Visualizador (Rust)](scripts/tools/live_coding_launcher.rs)
+👉 [Versión unificada con controles de teclado (main.rs)](src/main.rs)
+👉 [Demo de integración de mapeos profesionales](scripts/demos/demo_professional_mapping_integration.rs)
+👉 [Resumen final de los mapas de conversión profesionales](docs/MAPAS_PROFESIONALES_RESUMEN.md)
+👉 [Verificador completo del entorno](scripts/tools/verificar_configuracion.sh)
+👉 [🗺️ Roadmap de SC Score Visualizer](docs/ROADMAP.md)
+👉 [Ejemplo de live coding en SuperCollider](scripts/sc/ejemplos_live_coding.scd)
+👉 [Setup básico para el visualizador](scripts/sc/setup_visualizer.scd)
+👉 [Prueba rápida de conexión OSC](scripts/sc/test_conexion.scd)
+👉 [Receptor OSC auxiliar en Python (debug)](scripts/tools/osc_receiver.py)
+👉 [Menú CLI archivado (menu.rs)](backsup/menu.rs)
 
 ## ✨ Características Principales
 
@@ -11,6 +36,7 @@ Un sistema de visualización de audio en tiempo real para SuperCollider, constru
 - **⚙️ Configuración Flexible**: Sistema de configuración completo mediante archivos TOML
 - **🎯 Alto Rendimiento**: Renderizado optimizado con nannou y OpenGL
 - **🔧 Arquitectura Modular**: Código bien estructurado y fácilmente extensible
+- - 🧠 Interpretación visual de eventos musicales (notas, drones, clusters, beats)
 
 ## 🚀 Instalación
 
@@ -35,6 +61,9 @@ cargo build --release
 
 # Ejecutar
 cargo run
+
+# Para ejecutar con logs en tiempo real
+RUST_LOG=debug cargo run
 ```
 
 ## 🎮 Uso
@@ -46,6 +75,8 @@ cargo run
 ```
 
 El visualizador se iniciará y comenzará a escuchar mensajes OSC en `127.0.0.1:57124` por defecto.
+
+Esta versión principal incluye soporte para controles de teclado integrados directamente en `main.rs`.
 
 ### Controles de Teclado
 
@@ -105,6 +136,8 @@ max_drones = 10
 cleanup_interval_frames = 300
 ```
 
+Si el archivo `config.toml` no existe, el sistema utilizará valores por defecto. Puedes crear uno manualmente copiando `config.example.toml`.
+
 ### Configuración OSC
 
 Para conectar desde SuperCollider:
@@ -127,7 +160,7 @@ Para conectar desde SuperCollider:
 
 ```
 src/
-├── main.rs              # Punto de entrada y loop principal
+├── main.rs              # Punto de entrada unificado con controles de teclado
 ├── model.rs             # Estructuras de datos principales
 ├── config.rs            # Sistema de configuración
 ├── osc_server.rs        # Servidor OSC y manejo de mensajes
@@ -201,6 +234,8 @@ El visualizador soporta múltiples estilos configurables:
 - **Clusters**: Múltiples partículas sincronizadas
 - **Beats**: Marcadores de tiempo visuales
 
+Puedes cambiar el estilo visual en caliente editando el archivo de configuración y reiniciando el programa. En versiones futuras se añadirá conmutación dinámica en tiempo real.
+
 ## 🔧 Desarrollo
 
 ### Compilación
@@ -224,6 +259,9 @@ cargo test
 
 # Tests con output detallado
 cargo test -- --nocapture
+
+# Ejecutar tests con logs activos
+RUST_LOG=debug cargo test -- --nocapture
 ```
 
 ### Linting y Formato
@@ -273,6 +311,8 @@ El sistema de captura permite guardar eventos visuales para análisis posterior:
 - Captura manual con tecla `P`
 - Resolución configurable
 - Nombrado automático con timestamp
+
+Las imágenes se guardan con la resolución y estilo visual actuales en pantalla.
 
 ## 🤝 Contribución
 

@@ -46,7 +46,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     
     // Combinación final con nuevos efectos
     let dynamic_mix = mix(color, time_color, 0.3);
-    let modulated = dynamic_mix * (1.0 + audio_glow + beat_flash) * wave_rings;
+    let brightness_boost = clamp(audio_glow + beat_flash, 0.0, 1.5);
+    let modulated = dynamic_mix * (1.0 + brightness_boost) * wave_rings;
     color = modulated;
     
     // Degradado UV para efectos adicionales

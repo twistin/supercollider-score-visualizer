@@ -18,7 +18,7 @@ pub enum AudioCaptureError {
 
 /// Inicia la captura de audio desde el micrófono.
 /// Envía muestras de tipo `f32` por el canal proporcionado.
-/// Retorna un `Stream` activo que debe mantenerse vivo.
+/// ⚠️ Importante: el `Stream` devuelto debe mantenerse vivo mientras quieras recibir datos del micrófono.
 pub fn start_audio_capture(event_sender: Sender<f32>) -> Result<Stream, AudioCaptureError> {
     let host = cpal::default_host();
     let device = host.default_input_device().ok_or(AudioCaptureError::NoInputDevice)?;
@@ -59,11 +59,9 @@ where
         config,
         move |data: &[T], _| {
             for &sample in data {
-                let sample_f32 = sample.to_f32();
-                if let Some(val) = sample_f32 {
-                    if sender.send(val).is_err() {
-                        break;
-                    }
+                let val = sample.to_f32();
+                if sender.send(val).is_err() {
+                    break;
                 }
             }
         },

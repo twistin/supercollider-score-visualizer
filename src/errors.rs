@@ -25,14 +25,14 @@ pub enum VisualizerError {
 impl fmt::Display for VisualizerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            VisualizerError::ConfigError { message } => write!(f, "Error de configuración: {}", message),
-            VisualizerError::OscConnectionError { message } => write!(f, "Error de conexión OSC: {}", message),
-            VisualizerError::MidiError { message } => write!(f, "Error MIDI: {}", message),
+            VisualizerError::ConfigError { message } => write!(f, "Error de configuración: {message}"),
+            VisualizerError::OscConnectionError { message } => write!(f, "Error de conexión OSC: {message}"),
+            VisualizerError::MidiError { message } => write!(f, "Error MIDI: {message}"),
             VisualizerError::ValidationError { field, expected, actual, details } => {
-                write!(f, "Error de validación en '{}': Esperado '{}', Encontrado '{}'. Detalles: {}", field, expected, actual, details)
+                write!(f, "Error de validación en '{field}': Esperado '{expected}', Encontrado '{actual}'. Detalles: {details}")
             },
-            VisualizerError::IoError(e) => write!(f, "Error de E/S: {}", e),
-            VisualizerError::GenericError { message } => write!(f, "Error genérico: {}", message),
+            VisualizerError::IoError(e) => write!(f, "Error de E/S: {e}"),
+            VisualizerError::GenericError { message } => write!(f, "Error genérico: {message}"),
         }
     }
 }
@@ -56,7 +56,7 @@ impl From<std::io::Error> for VisualizerError {
 // Implementar From para nannou_osc::CommunicationError
 impl From<nannou_osc::CommunicationError> for VisualizerError {
     fn from(err: nannou_osc::CommunicationError) -> Self {
-        VisualizerError::OscConnectionError { message: format!("Error de comunicación OSC: {}", err) }
+        VisualizerError::OscConnectionError { message: format!("Error de comunicación OSC: {err}") }
     }
 }
 
@@ -64,12 +64,12 @@ impl From<nannou_osc::CommunicationError> for VisualizerError {
 // Por ejemplo, para toml::de::Error si cargas configuración TOML
 impl From<toml::de::Error> for VisualizerError {
     fn from(err: toml::de::Error) -> Self {
-        VisualizerError::ConfigError { message: format!("Error de parseo TOML: {}", err) }
+        VisualizerError::ConfigError { message: format!("Error de parseo TOML: {err}") }
     }
 }
 
 impl From<toml::ser::Error> for VisualizerError {
     fn from(err: toml::ser::Error) -> Self {
-        VisualizerError::ConfigError { message: format!("Error de serialización TOML: {}", err) }
+        VisualizerError::ConfigError { message: format!("Error de serialización TOML: {err}") }
     }
 }

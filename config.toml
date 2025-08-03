@@ -1,86 +1,87 @@
+# ─────────────────────────────────────────────────────────────
+# 🛰️  OSC Configuration
+# ─────────────────────────────────────────────────────────────
 [osc]
-listen_host = "127.0.0.1"
-listen_port = 6000
-buffer_size = 1024
-timeout_ms = 10
-max_messages_per_frame = 100
+listen_host = "127.0.0.1"             # Dirección local para escuchar mensajes OSC
+listen_port = 6001                 # Puerto donde la app recibirá OSC
+buffer_size = 1024                  # Tamaño del buffer de mensajes entrantes
+timeout_ms = 10                     # Tiempo máximo de espera por frame (en milisegundos)
+max_messages_per_frame = 100        # Límite de mensajes a procesar por frame
 
+# ─────────────────────────────────────────────────────────────
+# 🎧 Audio Analysis Configuration
+# ─────────────────────────────────────────────────────────────
 [audio]
-freq_min = 20.0
-freq_max = 20000.0
-amp_min = 0.0
-amp_max = 1.0
-dur_min = 0.1
-dur_max = 10.0
-enable_input_capture = false
+freq_min = 20.0                     # Frecuencia mínima detectada (Hz)
+freq_max = 20000.0                  # Frecuencia máxima detectada (Hz)
+amp_min = 0.0                       # Amplitud mínima relevante
+amp_max = 1.0                       # Amplitud máxima esperada
+dur_min = 0.1                       # Duración mínima de eventos (segundos)
+dur_max = 10.0                      # Duración máxima de eventos (segundos)
+enable_input_capture = false       # Captura de audio desde micro (true = activar)
 
+# ─────────────────────────────────────────────────────────────
+# 🖼️ Visual Settings
+# ─────────────────────────────────────────────────────────────
 [visual]
-quality = "High"
-theme = "Modern"
-debug_mode = true
-show_fps = true
-background_color = [
-    0.1,
-    0.1,
-    0.1,
-    1.0,
-]
-show_grid = true
-grid_color = [
-    0.2,
-    0.2,
-    0.2,
-    0.5,
-]
-grid_frequency_lines = [
-    60.0,
-    120.0,
-    240.0,
-    480.0,
-    960.0,
-    1920.0,
-]
-timeline_divisions = 8
-timeline_duration = 10.0
-background_style = "Solid"
-show_debug = true
+quality = "High"                    # Calidad del renderizado: Low, Medium, High
+theme = "Modern"                    # Estilo visual general
+debug_mode = true                   # Modo depuración visual
+show_fps = true                     # Mostrar frames por segundo en pantalla
+background_color = [0.1, 0.1, 0.1, 1.0] # Color de fondo (RGBA)
+show_grid = true                    # Mostrar rejilla de referencia
+grid_color = [0.2, 0.2, 0.2, 0.5]   # Color de la rejilla (RGBA)
+grid_frequency_lines = [60.0, 120.0, 240.0, 480.0, 960.0, 1920.0] # Líneas horizontales por frecuencia
+timeline_divisions = 8             # Número de divisiones horizontales de tiempo
+timeline_duration = 10.0           # Duración total visible de la línea de tiempo (segundos)
+background_style = "Solid"         # Opciones: "Solid", "Gradient", "Texture"
+show_debug = true                  # Mostrar información de depuración
 
+# ─────────────────────────────────────────────────────────────
+# 🎹 MIDI Configuration
+# ─────────────────────────────────────────────────────────────
 [midi]
-enabled = true
-input_port_name = "IAC Driver Bus 1"
-channel_instruments = [
-    "piano",
-    "strings",
-    "synth",
-    "bass",
-    "drums",
-    "guitar",
-    "flute",
-    "trumpet",
-    "clarinet",
-    "oboe",
-    "french_horn",
-    "tuba",
-    "violin",
-    "cello",
-    "harp",
-    "percussion",
+enabled = true                     # Activar o no la entrada MIDI
+input_port_name = "IAC Driver Bus 1" # Nombre del puerto MIDI de entrada
+channel_instruments = [            # Nombres de instrumentos asignados a cada canal MIDI
+  "piano", "strings", "synth", "bass",
+  "drums", "guitar", "flute", "trumpet",
+  "clarinet", "oboe", "french_horn", "tuba",
+  "violin", "cello", "harp", "percussion",
 ]
-default_note_duration = 0.5
+default_note_duration = 0.5        # Duración por defecto para eventos MIDI sin duración explícita
 
+# ─────────────────────────────────────────────────────────────
+# 🐞 Debug & Logging
+# ─────────────────────────────────────────────────────────────
 [debug]
-enable_logs = true
-log_level = "Debug"
-
-[window]
-width = 1280
-height = 720
-title = "SC Score Visualizer"
-resizable = true
+enable_logs = true                 # Mostrar logs detallados en consola
+log_level = "Debug"                # Niveles: Error, Warn, Info, Debug, Trace
 
 [logging]
-show_performance_stats = true
-stats_interval_frames = 60
+show_performance_stats = true      # Mostrar estadísticas de rendimiento (CPU, FPS, etc.)
+stats_interval_frames = 60         # Intervalo de actualización de stats (en frames)
 
+# ─────────────────────────────────────────────────────────────
+# 🖥️ Window Settings
+# ─────────────────────────────────────────────────────────────
+[window]
+width = 1280                       # Ancho inicial de la ventana
+height = 720                       # Alto inicial
+title = "SC Score Visualizer"      # Título de la ventana
+resizable = true                   # Permitir redimensionar la ventana
+
+# ─────────────────────────────────────────────────────────────
+# ⚙️ Performance
+# ─────────────────────────────────────────────────────────────
 [performance]
-cleanup_interval_frames = 300
+cleanup_interval_frames = 300      # Cada cuántos frames se limpian datos antiguos
+
+
+# ─────────────────────────────────────────────────────────────
+# ✈️ Configuración visual para modo Airport
+# ─────────────────────────────────────────────────────────────
+[airport_visual]
+plane_change_interval = 30      # segundos
+scroll_speed = 120.0
+default_size = 50.0

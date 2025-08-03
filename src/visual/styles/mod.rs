@@ -1,8 +1,14 @@
 // 🎨 Estilos visuales
 // Definiciones de colores, fuentes y estilos (futuro)
-
 use nannou::prelude::*;
 
+pub fn theme_from_config(config: &crate::config::AppConfig) -> VisualTheme {
+    if let Some(style) = config.visual.style.as_ref() {
+        VisualTheme::from_name(style).unwrap_or_default()
+    } else {
+        VisualTheme::default()
+    }
+}
 pub struct VisualTheme {
     /// Color de fondo general de la interfaz
     pub background_color: Srgb<u8>,
@@ -42,6 +48,15 @@ impl VisualTheme {
             grid_line_thickness: 1.0,
             font_size: 14,
             border_radius: 4.0,
+        }
+    }
+
+    /// Devuelve un tema visual a partir de un nombre ("dark", "light")
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.to_lowercase().as_str() {
+            "dark" => Some(Self::dark_theme()),
+            "light" => Some(Self::light_theme()),
+            _ => None,
         }
     }
 }
