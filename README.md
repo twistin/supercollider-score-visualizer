@@ -236,6 +236,22 @@ El visualizador soporta múltiples estilos configurables:
 
 Puedes cambiar el estilo visual en caliente editando el archivo de configuración y reiniciando el programa. En versiones futuras se añadirá conmutación dinámica en tiempo real.
 
+## 🖼️ Ejemplos Visuales
+
+A continuación se muestran capturas de pantalla de los ejemplos definidos en `scripts/sc/ejemplos_live_coding.scd`.
+
+### Ejemplo 1: Secuencia de Notas Simples
+
+Este ejemplo envía una serie de notas individuales con frecuencia, amplitud y duración aleatorias. Es ideal para probar la respuesta básica del visualizador.
+
+![Ejemplo 1](public/Ejemplo 1.png)
+
+### Ejemplo 5: Drones y Notas Combinadas
+
+Este ejemplo más complejo combina drones (sonidos largos y sostenidos) con secuencias de notas cortas. Permite observar cómo el visualizador gestiona eventos de diferente duración y naturaleza simultáneamente.
+
+![Ejemplo 5](public/Ejemplo 5.png)
+
 ## 🔧 Desarrollo
 
 ### Compilación
